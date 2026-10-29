@@ -8,11 +8,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.pipeline import Pipeline
 from sklearn.naive_bayes import MultinomialNB
 
-from documents import DOCUMENTS
-
 
 # ============================================================
-# 1. PAGE CONFIGURATION AND CUSTOM STYLING
+# 1. PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -22,41 +20,232 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+# ============================================================
+# 2. HIGH-CONTRAST, READABLE DARK THEME
+# ============================================================
+
 st.markdown("""
 <style>
+/* Main canvas */
 .stApp {
-    background-color: #0b1220;
-    color: #e5edf8;
+    background-color: #0B1220;
+    color: #F1F5F9;
+    font-size: 18px;
 }
-[data-testid="stSidebar"] {
-    background-color: #111c2e;
-}
+
+/* Main content width and spacing */
 .block-container {
-    padding-top: 1.8rem;
-    max-width: 1500px;
+    max-width: 1600px;
+    padding: 2rem 2.5rem 3rem 2.5rem;
 }
+
+/* Global text readability */
+html, body, [class*="st-"] {
+    font-size: 18px;
+}
+
+p, li, label, .stMarkdown, .stCaption {
+    color: #E2E8F0;
+    line-height: 1.65;
+}
+
+/* Headings */
+h1 {
+    color: #F8FAFC !important;
+    font-size: 2.45rem !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+}
+
+h2 {
+    color: #F8FAFC !important;
+    font-size: 1.85rem !important;
+    font-weight: 750 !important;
+    margin-top: 1.1rem !important;
+}
+
+h3 {
+    color: #7DD3FC !important;
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: #101C30;
+    border-right: 1px solid #334155;
+}
+
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label {
+    color: #E2E8F0 !important;
+    font-size: 17px !important;
+}
+
+/* Tabs: larger labels, clear contrast */
+button[data-baseweb="tab"] {
+    color: #DCE7F5 !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    padding: 15px 12px !important;
+    min-height: 58px !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #67E8F9 !important;
+    border-bottom: 3px solid #22D3EE !important;
+}
+
+div[data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: 1px solid #475569;
+}
+
+/* Metrics */
 div[data-testid="stMetric"] {
-    background: #142238;
-    border: 1px solid #263b56;
-    padding: 16px;
-    border-radius: 12px;
+    background: #16263D;
+    border: 1px solid #3B526F;
+    border-radius: 14px;
+    padding: 20px;
 }
+
 div[data-testid="stMetricLabel"] {
-    color: #a9bdd5;
+    color: #CBD5E1 !important;
+    font-size: 17px !important;
 }
-h1, h2, h3 {
-    color: #e5edf8;
+
+div[data-testid="stMetricValue"] {
+    color: #67E8F9 !important;
+    font-size: 30px !important;
+    font-weight: 800 !important;
 }
+
+/* Inputs */
+.stTextInput input,
+.stTextArea textarea,
+.stNumberInput input {
+    background-color: #17263B !important;
+    color: #FFFFFF !important;
+    border: 1px solid #64748B !important;
+    border-radius: 8px !important;
+    font-size: 18px !important;
+    min-height: 48px;
+}
+
+div[data-baseweb="select"] > div {
+    background-color: #17263B !important;
+    color: #FFFFFF !important;
+    border-color: #64748B !important;
+    font-size: 17px !important;
+}
+
+/* Buttons */
+.stButton > button,
+.stDownloadButton > button {
+    background-color: #0E7490;
+    color: #FFFFFF !important;
+    border: 1px solid #67E8F9;
+    border-radius: 9px;
+    font-size: 17px !important;
+    font-weight: 750 !important;
+    min-height: 48px;
+    padding: 8px 18px;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background-color: #155E75;
+    border-color: #A5F3FC;
+}
+
+/* Cards and containers */
 div[data-testid="stVerticalBlockBorderWrapper"] {
-    border-color: #263b56;
+    background-color: #111F33;
+    border: 1px solid #3B526F;
     border-radius: 12px;
+    padding: 10px;
+}
+
+/* Alerts */
+div[data-testid="stAlert"] {
+    border-radius: 10px;
+    font-size: 17px;
+}
+
+/* Dataframes */
+div[data-testid="stDataFrame"] {
+    border: 1px solid #475569;
+    border-radius: 8px;
+}
+
+/* Captions remain readable */
+.stCaption,
+div[data-testid="stCaptionContainer"] {
+    color: #B8C7DA !important;
+    font-size: 15px !important;
+    line-height: 1.5 !important;
+}
+
+/* Slider labels */
+div[data-testid="stSlider"] label {
+    color: #F1F5F9 !important;
+    font-size: 17px !important;
+}
+
+/* Dividers */
+hr {
+    border-color: #334155;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Footer */
+.lab-footer {
+    color: #B8C7DA;
+    background: #111F33;
+    padding: 18px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 15px;
+    border: 1px solid #334155;
+}
+
+/* Responsive spacing on narrower screens */
+@media (max-width: 900px) {
+    .block-container {
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 1.8rem !important;
+    }
+
+    button[data-baseweb="tab"] {
+        font-size: 14px !important;
+        padding: 10px 6px !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ============================================================
-# 2. SYNTHETIC NAIVE BAYES TRAINING DATA
+# 3. LOAD SYNTHETIC DOCUMENT CORPUS
+# ============================================================
+
+try:
+    from documents import DOCUMENTS
+except ImportError:
+    st.error(
+        "Cannot find documents.py. "
+        "Make sure it exists in the same GitHub repository as app.py."
+    )
+    st.stop()
+
+
+# ============================================================
+# 4. NAIVE BAYES TRAINING DATA
 # ============================================================
 
 TRAINING_DATA = [
@@ -88,7 +277,7 @@ TRAINING_DATA = [
 
 
 # ============================================================
-# 3. BASELINE RAG RETRIEVAL ENGINE
+# 5. BASELINE TF-IDF RETRIEVAL
 # ============================================================
 
 @st.cache_resource
@@ -105,22 +294,21 @@ def build_retriever():
         sublinear_tf=True,
     )
 
-    document_vectors = vectorizer.fit_transform(texts)
+    vectors = vectorizer.fit_transform(texts)
 
-    return vectorizer, document_vectors
+    return vectorizer, vectors
 
 
 def retrieve_documents(question, top_k=3):
-    vectorizer, document_vectors = build_retriever()
+    vectorizer, vectors = build_retriever()
 
     query_vector = vectorizer.transform([question])
 
     scores = cosine_similarity(
-        query_vector,
-        document_vectors,
+        query_vector, vectors
     ).flatten()
 
-    ranked_indices = np.argsort(scores)[::-1][:top_k]
+    ranked_indices = np.argsort(scores)[::-1]
 
     results = []
 
@@ -132,11 +320,14 @@ def retrieve_documents(question, top_k=3):
         result["score"] = float(scores[index])
         results.append(result)
 
+        if len(results) >= top_k:
+            break
+
     return results
 
 
 # ============================================================
-# 4. NAIVE BAYES QUERY CLASSIFIER
+# 6. NAIVE BAYES CLASSIFIER
 # ============================================================
 
 @st.cache_resource
@@ -153,10 +344,7 @@ def build_classifier():
                 ngram_range=(1, 2),
             ),
         ),
-        (
-            "classifier",
-            MultinomialNB(),
-        ),
+        ("classifier", MultinomialNB()),
     ])
 
     model.fit(questions, labels)
@@ -167,34 +355,30 @@ def build_classifier():
 def classify_query(question):
     model = build_classifier()
 
-    predicted_class = model.predict([question])[0]
+    predicted = model.predict([question])[0]
     probabilities = model.predict_proba([question])[0]
 
     probability_map = dict(
         zip(model.classes_, probabilities)
     )
 
-    return predicted_class, probability_map
+    return predicted, probability_map
 
 
 # ============================================================
-# 5. CATEGORY-AWARE RETRIEVAL
+# 7. CATEGORY-AWARE RERANKING
 # ============================================================
 
-def retrieve_with_category(question, predicted_category, top_k=5):
-    # Retrieve the full available document ranking first.
+def retrieve_with_category(question, category, top_k=5):
     results = retrieve_documents(
         question,
         top_k=len(DOCUMENTS),
     )
 
-    # A transparent demonstration heuristic.
-    category_bonus = 0.15
-
     for result in results:
         bonus = (
-            category_bonus
-            if result["category"] == predicted_category
+            0.15
+            if result["category"] == category
             else 0.0
         )
 
@@ -210,87 +394,196 @@ def retrieve_with_category(question, predicted_category, top_k=5):
 
 
 # ============================================================
-# 6. SHARED DISPLAY HELPER
+# 8. DISPLAY RETRIEVAL RESULTS
 # ============================================================
 
 def display_results(results, show_adjusted=False):
     if not results:
         st.warning(
-            "No matching terms were found in the document corpus. "
-            "Try rephrasing your question."
+            "No matching passages found. Try rephrasing your question."
         )
         return
 
     for rank, result in enumerate(results, start=1):
         with st.container(border=True):
             st.markdown(
-                f"**{rank}. {result['title']}**"
+                f"### {rank}. {result['title']}"
             )
 
-            metadata = (
-                f"Source: {result['id']}  |  "
-                f"Category: {result['category']}  |  "
-                f"TF-IDF similarity: {result['score']:.3f}"
+            st.markdown(
+                f"**Source:** `{result['id']}`  \n"
+                f"**Category:** `{result['category']}`  \n"
+                f"**TF-IDF similarity:** `{result['score']:.3f}`"
             )
 
             if show_adjusted:
-                metadata += (
-                    f"  |  Category bonus: "
-                    f"{result['category_bonus']:.2f}"
-                    f"  |  Adjusted score: "
-                    f"{result['adjusted_score']:.3f}"
+                st.markdown(
+                    f"**Category bonus:** "
+                    f"`{result['category_bonus']:.2f}`  \n"
+                    f"**Adjusted score:** "
+                    f"`{result['adjusted_score']:.3f}`"
                 )
 
-            st.caption(metadata)
             st.write(result["text"])
 
 
 # ============================================================
-# 7. APPLICATION HEADER AND SIDEBAR
+# 9. HIDDEN MARKOV MODEL
+# ============================================================
+
+HMM_STATES = ["Normal", "Degraded", "Fault"]
+
+HMM_OBSERVATIONS = [
+    "Normal temperature",
+    "Elevated temperature",
+    "High packet loss",
+    "Repeated restart",
+]
+
+HMM_START = np.array([0.80, 0.15, 0.05])
+
+HMM_TRANSITION = np.array([
+    [0.80, 0.18, 0.02],
+    [0.15, 0.65, 0.20],
+    [0.05, 0.20, 0.75],
+])
+
+HMM_EMISSION = np.array([
+    [0.70, 0.10, 0.15, 0.05],
+    [0.15, 0.45, 0.30, 0.10],
+    [0.05, 0.15, 0.25, 0.55],
+])
+
+
+def viterbi_decode(observations):
+    if not observations:
+        return [], 0.0
+
+    observation_indices = [
+        HMM_OBSERVATIONS.index(obs)
+        for obs in observations
+    ]
+
+    num_states = len(HMM_STATES)
+    num_steps = len(observation_indices)
+
+    log_start = np.log(HMM_START)
+    log_transition = np.log(HMM_TRANSITION)
+    log_emission = np.log(HMM_EMISSION)
+
+    dp = np.full(
+        (num_steps, num_states),
+        -np.inf,
+    )
+
+    backpointer = np.zeros(
+        (num_steps, num_states),
+        dtype=int,
+    )
+
+    dp[0] = (
+        log_start
+        + log_emission[:, observation_indices[0]]
+    )
+
+    for t in range(1, num_steps):
+        observation_index = observation_indices[t]
+
+        for current_state in range(num_states):
+            candidates = (
+                dp[t - 1]
+                + log_transition[:, current_state]
+            )
+
+            best_previous = int(np.argmax(candidates))
+
+            dp[t, current_state] = (
+                candidates[best_previous]
+                + log_emission[
+                    current_state, observation_index
+                ]
+            )
+
+            backpointer[t, current_state] = best_previous
+
+    last_state = int(np.argmax(dp[-1]))
+    best_log_probability = float(dp[-1, last_state])
+
+    path = [last_state]
+
+    for t in range(num_steps - 1, 0, -1):
+        path.append(
+            int(backpointer[t, path[-1]])
+        )
+
+    path.reverse()
+
+    decoded_states = [
+        HMM_STATES[index]
+        for index in path
+    ]
+
+    return decoded_states, best_log_probability
+
+
+# ============================================================
+# 10. APP HEADER
 # ============================================================
 
 st.title("🧠 Intelligent RAG Model Laboratory")
 
+st.markdown(
+    """
+    Explore how machine-learning models can provide additional
+    context for technical-document retrieval.
+    """
+)
+
 st.caption(
-    "Investigating how machine-learning models can improve "
-    "technical document retrieval."
+    "Research prototype | Synthetic technical documents | "
+    "High-contrast engineering dashboard"
 )
 
 st.sidebar.title("MODEL LAB")
-st.sidebar.caption("Technical AI Research Demonstrator")
+st.sidebar.markdown("### Research Dashboard")
+st.sidebar.divider()
 
-st.sidebar.success("Synthetic corpus loaded")
-st.sidebar.metric("Indexed documents", len(DOCUMENTS))
-st.sidebar.metric("ML models planned", 3)
+st.sidebar.metric("Technical documents", len(DOCUMENTS))
+st.sidebar.metric("Query categories", 3)
+st.sidebar.metric("Implemented algorithms", 3)
+
+st.sidebar.markdown("### System status")
+st.sidebar.success("TF-IDF retrieval: Active")
+st.sidebar.success("Naive Bayes: Active")
+st.sidebar.success("HMM / Viterbi: Active")
+st.sidebar.warning("VAE: Not yet implemented")
+st.sidebar.info("LLM generation: Not connected")
 
 st.sidebar.divider()
 
-st.sidebar.markdown("### Research workflow")
 st.sidebar.markdown(
     """
-    1. Establish baseline retrieval
-    2. Classify query intent
-    3. Infer temporal equipment state
-    4. Detect anomalous telemetry
-    5. Compare retrieval performance
-    """
-)
+    **Research workflow**
 
-st.sidebar.caption(
-    "Prototype uses synthetic data. No external LLM is connected."
+    1. Retrieve document evidence
+    2. Classify query intent
+    3. Infer hidden equipment states
+    4. Explore anomaly detection
+    5. Evaluate retrieval quality
+    """
 )
 
 
 # ============================================================
-# 8. FIVE MAIN APPLICATION TABS
+# 11. MAIN TABS
 # ============================================================
 
 overview, vae, nb, hmm, evaluation = st.tabs([
-    "🏠 RAG Control Center",
-    "📈 VAE Laboratory",
-    "🧭 Naive Bayes",
-    "🔄 HMM Laboratory",
-    "📊 Evaluation",
+    "RAG CONTROL CENTER",
+    "VAE LABORATORY",
+    "NAIVE BAYES",
+    "HMM STATE TRACKER",
+    "EVALUATION",
 ])
 
 
@@ -299,111 +592,92 @@ overview, vae, nb, hmm, evaluation = st.tabs([
 # ============================================================
 
 with overview:
-    st.subheader("Technical Document Intelligence")
+    st.header("RAG Control Center")
 
     st.write(
-        "Enter a technical question to retrieve relevant passages "
+        "Ask a technical question and inspect the evidence retrieved "
         "from the synthetic maintenance document collection."
     )
 
-    col1, col2, col3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
 
-    col1.metric(
-        "Document collection",
-        len(DOCUMENTS),
-    )
-
-    col2.metric(
-        "Retrieval method",
-        "TF-IDF",
-    )
-
-    col3.metric(
-        "Generation",
-        "Not connected",
-    )
+    c1.metric("Indexed documents", len(DOCUMENTS))
+    c2.metric("Retrieval engine", "TF-IDF")
+    c3.metric("Answer generation", "Not connected")
 
     question = st.text_input(
-        "Ask a technical question",
-        placeholder=(
-            "Why might equipment restart unexpectedly?"
-        ),
+        "Your technical question",
+        placeholder="Why might equipment restart unexpectedly?",
         key="rag_question",
     )
 
-    search_col, topk_col = st.columns([2, 1])
+    control_col, info_col = st.columns([1, 2])
 
-    with topk_col:
+    with control_col:
         top_k = st.selectbox(
-            "Maximum results",
+            "Number of results",
             [1, 2, 3, 5],
             index=2,
             key="rag_top_k",
         )
 
-    with search_col:
-        st.caption(
-            "Baseline retrieval: TF-IDF vectors + cosine similarity"
+    with info_col:
+        st.markdown(
+            "**Search method**  \n"
+            "TF-IDF vectorization + cosine similarity"
         )
 
     if st.button(
-        "🔎 Retrieve technical evidence",
+        "SEARCH TECHNICAL DOCUMENTS",
         type="primary",
         use_container_width=True,
         key="rag_search",
     ):
         if not question.strip():
-            st.warning("Please enter a technical question.")
-
+            st.warning("Enter a technical question first.")
         else:
             results = retrieve_documents(question, top_k)
 
-            if not results:
-                st.warning(
-                    "No matching terms were found. "
-                    "Try different wording."
-                )
+            if results:
+                metric_col1, metric_col2 = st.columns(2)
 
-            else:
-                best_score = results[0]["score"]
-
-                metric1, metric2 = st.columns(2)
-
-                metric1.metric(
-                    "Retrieved passages",
+                metric_col1.metric(
+                    "Matching passages",
                     len(results),
                 )
 
-                metric2.metric(
-                    "Best similarity score",
-                    f"{best_score:.3f}",
+                metric_col2.metric(
+                    "Top similarity score",
+                    f"{results[0]['score']:.3f}",
                 )
 
                 st.caption(
-                    "Similarity is not a probability or a calibrated "
-                    "measure of answer correctness."
+                    "Similarity is not a probability or a measure "
+                    "of factual correctness."
                 )
 
-                st.markdown("### Retrieved evidence")
-
+                st.header("Retrieved evidence")
                 display_results(results)
 
                 st.info(
-                    "This is the baseline RAG retrieval stage. "
-                    "It retrieves source passages but does not yet "
-                    "generate an answer using a language model."
+                    "The current system retrieves evidence. It does not "
+                    "yet generate a natural-language answer using an LLM."
+                )
+            else:
+                st.warning(
+                    "No matching terms were found. Try different wording."
                 )
 
     st.divider()
 
-    st.subheader("Document Corpus Explorer")
+    st.header("Document Corpus Explorer")
 
     corpus_df = pd.DataFrame([
         {
             "Document ID": doc["id"],
-            "Title": doc["title"],
+            "Document title": doc["title"],
             "Category": doc["category"],
-            "Characters": len(doc["text"]),
+            "Text length": len(doc["text"]),
         }
         for doc in DOCUMENTS
     ])
@@ -414,154 +688,142 @@ with overview:
         hide_index=True,
     )
 
-    category_counts = (
+    counts = (
         corpus_df["Category"]
         .value_counts()
         .rename_axis("Category")
         .reset_index(name="Document count")
     )
 
-    st.markdown("### Corpus composition")
-
-    st.bar_chart(
-        category_counts.set_index("Category")
-    )
+    st.subheader("Corpus composition")
+    st.bar_chart(counts.set_index("Category"))
 
 
 # ============================================================
-# TAB 2: VAE LABORATORY - INITIAL TELEMETRY INTERFACE
+# TAB 2: VAE LABORATORY - CLEARLY MARKED PROTOTYPE
 # ============================================================
 
 with vae:
-    st.subheader("VAE Anomaly Laboratory")
+    st.header("VAE Anomaly Laboratory")
+
+    st.warning(
+        "Prototype only: this tab does not yet contain a trained "
+        "Variational Autoencoder or reconstruction-error calculation."
+    )
 
     st.write(
-        "Explore synthetic equipment telemetry. "
-        "These controls are a UI prototype; the VAE model "
-        "and trained anomaly detector are not implemented yet."
+        "Adjust synthetic telemetry values to explore how unusual "
+        "equipment conditions might provide additional RAG context."
     )
 
     left, right = st.columns([1, 2])
 
     with left:
-        st.markdown("### Telemetry controls")
+        st.subheader("Telemetry controls")
 
         temperature = st.slider(
             "Temperature (°C)",
-            min_value=20,
-            max_value=100,
-            value=55,
+            20, 100, 55,
             key="vae_temperature",
         )
 
         packet_loss = st.slider(
             "Packet loss (%)",
-            min_value=0,
-            max_value=50,
-            value=5,
+            0, 50, 5,
             key="vae_packet_loss",
         )
 
         restarts = st.slider(
             "Restart count",
-            min_value=0,
-            max_value=10,
-            value=1,
+            0, 10, 1,
             key="vae_restarts",
         )
 
-        st.caption(
-            "Synthetic values for demonstration only."
-        )
-
     with right:
-        st.markdown("### Current telemetry")
+        st.subheader("Current measurements")
 
         m1, m2, m3 = st.columns(3)
 
-        m1.metric(
-            "Temperature",
-            f"{temperature} °C",
-        )
+        m1.metric("Temperature", f"{temperature} °C")
+        m2.metric("Packet loss", f"{packet_loss}%")
+        m3.metric("Restarts", restarts)
 
-        m2.metric(
-            "Packet loss",
-            f"{packet_loss}%",
-        )
-
-        m3.metric(
-            "Restarts",
-            restarts,
-        )
-
-        # Illustrative rule-based indicator, not a VAE score.
-        illustrative_flag = (
+        # Illustrative rule-based thresholds only.
+        flagged = (
             temperature >= 80
             or packet_loss >= 20
             or restarts >= 4
         )
 
-        if illustrative_flag:
-            st.warning(
-                "Illustrative threshold flag: one or more telemetry "
-                "values exceed the demo thresholds."
+        if flagged:
+            st.error(
+                "Illustrative threshold exceeded. "
+                "This is not a trained anomaly detector."
             )
         else:
-            st.info(
-                "Illustrative threshold flag: no demo threshold exceeded."
+            st.success(
+                "No illustrative threshold exceeded."
             )
 
-        st.caption(
-            "This is a simple rule-based indicator, NOT a VAE "
-            "reconstruction error or a learned anomaly score."
+        telemetry_df = pd.DataFrame({
+            "Measurement": [
+                "Temperature (°C)",
+                "Packet loss (%)",
+                "Restart count",
+            ],
+            "Current value": [
+                temperature,
+                packet_loss,
+                restarts,
+            ],
+        })
+
+        st.bar_chart(
+            telemetry_df.set_index("Measurement")
         )
 
-    st.markdown("### Potential RAG integration")
+    st.divider()
+
+    st.subheader("Proposed connection to RAG")
 
     st.write(
-        "A future trained VAE could flag unusual telemetry. "
-        "Its output could then prioritize searches for relevant "
-        "maintenance procedures. This relationship must be evaluated "
-        "against baseline retrieval."
+        "A future trained VAE could calculate reconstruction error "
+        "for telemetry. If validated as useful, its anomaly score could "
+        "prioritize maintenance documents relevant to the detected "
+        "condition."
     )
 
 
 # ============================================================
-# TAB 3: NAIVE BAYES QUERY INTELLIGENCE
+# TAB 3: NAIVE BAYES
 # ============================================================
 
 with nb:
-    st.subheader("Naive Bayes Query Intelligence")
+    st.header("Naive Bayes Query Intelligence")
 
     st.write(
-        "Predict the intent of a technical question, inspect class "
-        "probabilities, and compare baseline retrieval with "
-        "category-aware reranking."
+        "Classify the intent of a maintenance question and examine "
+        "how the predicted category could influence retrieval."
     )
 
     nb_question = st.text_input(
-        "Enter a technical maintenance question",
-        placeholder=(
-            "Why does the equipment repeatedly restart?"
-        ),
+        "Enter a technical question",
+        placeholder="Why does the equipment repeatedly restart?",
         key="nb_question",
     )
 
     if st.button(
-        "🧭 Classify and retrieve",
+        "CLASSIFY QUERY",
         type="primary",
         use_container_width=True,
         key="nb_run",
     ):
         if not nb_question.strip():
-            st.warning("Please enter a question.")
-
+            st.warning("Enter a question first.")
         else:
-            predicted, probabilities = classify_query(
-                nb_question
-            )
+            predicted, probabilities = classify_query(nb_question)
 
-            st.markdown("### Predicted query category")
+            st.subheader("Predicted category")
 
             st.success(
                 predicted.replace("_", " ").title()
@@ -575,63 +837,62 @@ with nb:
                 ascending=False,
             )
 
-            st.markdown("### Class probabilities")
+            st.subheader("Class probability distribution")
 
             st.bar_chart(
                 prob_df.set_index("Category")
             )
 
             st.caption(
-                "Probabilities come from a small synthetic training set. "
-                "They are not calibrated confidence estimates."
+                "The classifier uses a small synthetic training set. "
+                "Its probabilities are not calibrated confidence estimates."
             )
+
+            st.divider()
+
+            st.subheader("Category-aware retrieval")
 
             baseline_results = retrieve_documents(
                 nb_question,
                 top_k=len(DOCUMENTS),
             )
 
-            reranked_results = retrieve_with_category(
+            routed_results = retrieve_with_category(
                 nb_question,
                 predicted,
                 top_k=5,
             )
 
-            st.markdown("### Retrieval comparison")
+            left, right = st.columns(2)
 
-            baseline_col, routed_col = st.columns(2)
-
-            with baseline_col:
+            with left:
                 st.markdown("#### Baseline ranking")
-                st.caption(
-                    "Ranked using text similarity alone."
-                )
+                st.caption("Text similarity only.")
 
                 display_results(
                     baseline_results[:3]
                 )
 
-            with routed_col:
+            with right:
                 st.markdown("#### Category-aware ranking")
                 st.caption(
-                    "Text similarity plus a fixed category bonus."
+                    "Text similarity plus a category bonus."
                 )
 
                 display_results(
-                    reranked_results[:3],
+                    routed_results[:3],
                     show_adjusted=True,
                 )
 
             st.info(
-                "The category bonus is a tunable demonstration heuristic. "
-                "It is not a learned parameter, and it may worsen ranking "
-                "if the predicted category is wrong."
+                "The fixed category bonus is a demonstration heuristic. "
+                "It can improve or worsen ranking and requires evaluation."
             )
 
-            with st.expander("Inspect training examples"):
+            with st.expander("View synthetic training examples"):
                 training_df = pd.DataFrame(
                     TRAINING_DATA,
-                    columns=["Training question", "Label"],
+                    columns=["Training question", "Category"],
                 )
 
                 st.dataframe(
@@ -642,125 +903,203 @@ with nb:
 
 
 # ============================================================
-# TAB 4: HMM LABORATORY - INITIAL INTERFACE
+# TAB 4: HMM STATE TRACKER
 # ============================================================
 
 with hmm:
-    st.subheader("Hidden Markov Model State Tracker")
+    st.header("Hidden Markov Model State Tracker")
 
     st.write(
-        "Explore a possible temporal-state model for equipment "
-        "observations. The current version is an interface prototype; "
-        "a trained HMM and Viterbi decoder are not implemented yet."
+        "Use the Viterbi algorithm to infer the most likely hidden "
+        "equipment-state sequence from observations."
     )
 
-    observation_options = [
-        "Normal temperature",
-        "Elevated temperature",
-        "High packet loss",
-        "Repeated restart",
-    ]
+    st.warning(
+        "The HMM transition and emission probabilities are illustrative. "
+        "They have not been trained on real equipment data."
+    )
 
     observations = st.multiselect(
-        "Select an observation sequence",
-        observation_options,
+        "Select observations in chronological order",
+        HMM_OBSERVATIONS,
         default=[
             "Normal temperature",
             "Elevated temperature",
             "High packet loss",
+            "Repeated restart",
         ],
         key="hmm_observations",
     )
 
-    st.markdown("### Illustrative state progression")
-
     if observations:
-        state_labels = []
+        states, log_probability = viterbi_decode(observations)
 
-        for observation in observations:
-            if observation == "Normal temperature":
-                state_labels.append("Possible normal state")
-            elif observation == "Elevated temperature":
-                state_labels.append("Possible degraded state")
-            elif observation == "High packet loss":
-                state_labels.append("Possible communication degradation")
-            else:
-                state_labels.append("Possible fault state")
+        st.subheader("Inferred state sequence")
 
-        for index, (obs, state) in enumerate(
-            zip(observations, state_labels),
-            start=1,
-        ):
-            st.markdown(
-                f"**Step {index}:** {obs}  →  *{state}*"
-            )
+        state_df = pd.DataFrame({
+            "Time step": range(1, len(observations) + 1),
+            "Observation": observations,
+            "Inferred state": states,
+        })
+
+        st.dataframe(
+            state_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.subheader("State transition path")
+
+        st.markdown(
+            " → ".join(f"**{state}**" for state in states)
+        )
+
+        col1, col2 = st.columns(2)
+
+        col1.metric(
+            "Final inferred state",
+            states[-1],
+        )
+
+        col2.metric(
+            "Best-path log probability",
+            f"{log_probability:.3f}",
+        )
 
         st.caption(
-            "These are illustrative mappings, not HMM-inferred states. "
-            "An actual HMM requires defined transition/emission "
-            "probabilities and a decoding algorithm."
+            "The log probability scores the most likely path under "
+            "the assumed model. It is not a calibrated fault probability."
         )
+
+        st.subheader("Transition probability matrix")
+
+        transition_df = pd.DataFrame(
+            HMM_TRANSITION,
+            index=HMM_STATES,
+            columns=HMM_STATES,
+        )
+
+        st.dataframe(
+            transition_df.style.format("{:.2f}"),
+            use_container_width=True,
+        )
+
+        if states[-1] == "Fault":
+            retrieval_category = "fault_isolation"
+            st.error(
+                "Inferred state: Fault. Fault-isolation documents "
+                "could be prioritized for further investigation."
+            )
+
+        elif states[-1] == "Degraded":
+            retrieval_category = "troubleshooting"
+            st.warning(
+                "Inferred state: Degraded. Troubleshooting documents "
+                "could be prioritized."
+            )
+
+        else:
+            retrieval_category = "preventive_maintenance"
+            st.success(
+                "Inferred state: Normal. Preventive-maintenance "
+                "documents could be prioritized."
+            )
+
+        st.divider()
+
+        st.subheader("Retrieve documents using state context")
+
+        if st.button(
+            "RETRIEVE STATE-RELEVANT DOCUMENTS",
+            type="primary",
+            use_container_width=True,
+            key="hmm_rag_search",
+        ):
+            query_text = " ".join(observations)
+
+            results = retrieve_documents(
+                query_text,
+                top_k=len(DOCUMENTS),
+            )
+
+            for result in results:
+                bonus = (
+                    0.15
+                    if result["category"] == retrieval_category
+                    else 0.0
+                )
+
+                result["category_bonus"] = bonus
+                result["adjusted_score"] = result["score"] + bonus
+
+            results.sort(
+                key=lambda item: item["adjusted_score"],
+                reverse=True,
+            )
+
+            display_results(
+                results[:3],
+                show_adjusted=True,
+            )
+
+            st.caption(
+                "State-aware retrieval uses a fixed category bonus. "
+                "The inferred state and retrieved evidence must be "
+                "validated independently."
+            )
 
     else:
         st.info(
-            "Select observations to view the illustrative sequence."
+            "Select one or more observations to run Viterbi decoding."
         )
-
-    st.markdown("### Potential RAG integration")
-
-    st.write(
-        "An actual HMM could infer a hidden state from a sequence "
-        "of observations. That state could become additional retrieval "
-        "context, alongside the user's question."
-    )
 
 
 # ============================================================
-# TAB 5: COMPARATIVE EVALUATION
+# TAB 5: EVALUATION
 # ============================================================
 
 with evaluation:
-    st.subheader("Comparative RAG Evaluation")
+    st.header("Comparative RAG Evaluation")
 
     st.write(
-        "Evaluate baseline retrieval against model-assisted retrieval "
-        "using a fixed set of test questions and known relevant documents."
+        "A framework for testing whether model-assisted retrieval "
+        "improves results over the baseline."
     )
-
-    st.markdown("### Current prototype status")
 
     status_df = pd.DataFrame([
         {
             "Component": "TF-IDF retrieval",
             "Status": "Implemented",
-            "Role": "Baseline passage retrieval",
+            "Purpose": "Baseline document retrieval",
         },
         {
             "Component": "Naive Bayes",
             "Status": "Implemented",
-            "Role": "Query intent classification",
+            "Purpose": "Query intent classification",
         },
         {
             "Component": "Category-aware reranking",
             "Status": "Implemented",
-            "Role": "Heuristic category bonus",
+            "Purpose": "Heuristic reranking",
+        },
+        {
+            "Component": "HMM / Viterbi",
+            "Status": "Implemented",
+            "Purpose": "Hidden-state sequence inference",
         },
         {
             "Component": "VAE",
             "Status": "Not implemented",
-            "Role": "Future anomaly detection",
-        },
-        {
-            "Component": "HMM",
-            "Status": "Not implemented",
-            "Role": "Future temporal-state inference",
+            "Purpose": "Future anomaly detection",
         },
         {
             "Component": "Generative LLM",
             "Status": "Not connected",
-            "Role": "Future answer generation",
+            "Purpose": "Future answer generation",
         },
     ])
+
+    st.subheader("Implementation status")
 
     st.dataframe(
         status_df,
@@ -768,28 +1107,36 @@ with evaluation:
         hide_index=True,
     )
 
-    st.markdown("### Retrieval evaluation metrics")
+    st.divider()
 
-    st.write(
-        """
-        - **Recall@k:** Does the top-k result set include relevant documents?
-        - **MRR:** How highly ranked is the first relevant document?
-        - **Precision@k:** What fraction of the top-k documents are relevant?
-        """
-    )
+    st.subheader("Recommended retrieval metrics")
+
+    metric1, metric2, metric3 = st.columns(3)
+
+    metric1.metric("Recall@k", "Planned")
+    metric2.metric("MRR", "Planned")
+    metric3.metric("Precision@k", "Planned")
+
+    st.markdown("""
+    **Recall@k:** Does the top-k set contain the relevant document?
+
+    **Mean Reciprocal Rank (MRR):** How high is the first relevant result?
+
+    **Precision@k:** What proportion of the top-k results are relevant?
+    """)
 
     st.warning(
-        "Do not interpret a higher similarity score as proof of better "
-        "retrieval. A proper evaluation needs labeled test queries, "
-        "relevant-document judgments, and a comparison on the same cases."
+        "A higher similarity score does not prove better retrieval. "
+        "Evaluation requires a fixed set of test questions with "
+        "ground-truth relevant document IDs."
     )
 
-    st.markdown("### Suggested next experiment")
+    st.subheader("Suggested experiment")
 
     st.write(
-        "Create a held-out set of synthetic maintenance questions, "
-        "label the relevant document IDs, and compare baseline TF-IDF "
-        "against category-aware reranking using the same evaluation set."
+        "Create a held-out set of synthetic questions, label the "
+        "relevant document IDs, and compare baseline TF-IDF with "
+        "category-aware retrieval on exactly the same queries."
     )
 
 
@@ -797,9 +1144,13 @@ with evaluation:
 # FOOTER
 # ============================================================
 
-st.divider()
-
-st.caption(
-    "Intelligent RAG Model Laboratory | Research prototype | "
-    "Synthetic documents only | Not for operational maintenance decisions"
+st.markdown(
+    """
+    <div class="lab-footer">
+        <strong>Intelligent RAG Model Laboratory</strong><br>
+        Research prototype · Synthetic data only ·
+        Not for operational maintenance decisions
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
