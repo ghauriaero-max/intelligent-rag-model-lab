@@ -1105,6 +1105,18 @@ PAGE_BLURBS = {
     ),
 }
 
+# Contextual links to the relevant sections of the HTML manual
+MANUAL_URL = "/app/static/user_manual.html"
+
+MANUAL_SECTIONS = {
+    "VAE Laboratory": "vae-lab",
+    "Naive Bayes Laboratory": "nb-lab",
+    "HMM Laboratory": "hmm-lab",
+    "Agentic RAG": "agentic-rag",
+    "RAG Evaluation Lab": "rag-eval",
+}
+
+
 
 def nav_label(page_name):
     return f"{NAV_ICONS[page_name]}  {page_name}"
