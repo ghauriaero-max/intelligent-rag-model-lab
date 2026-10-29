@@ -1359,7 +1359,7 @@ with logo_col:
             unsafe_allow_html=True,
         )
 
-with hero_col:
+
     
 
 with hero_col:
