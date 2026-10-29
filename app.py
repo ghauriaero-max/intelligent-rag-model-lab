@@ -1360,35 +1360,38 @@ with logo_col:
         )
 
 with hero_col:
-    st.markdown(
-        f"""
-        <div class="hero">
-            <div class="hero-row">
-                <div>
-                    <div class="eyebrow">
-                        M² AI · TECHNICAL AI MODEL LABORATORY
-                    </div>
-                    <div class="hero-title">
-                        {NAV_ICONS[page]} {page}
-                    </div>
+    
+st.markdown(
+    f"""
+    <div class="hero">
+        <div class="hero-row">
+            <div>
+                <div class="eyebrow">
+                    M² AI · TECHNICAL AI MODEL LABORATORY
                 </div>
-                
-            <div class="hero-subtitle">{PAGE_BLURBS[page]}</div>
-            <a class="manual-link"
-               href="{MANUAL_URL}#{MANUAL_SECTIONS[page]}"
-               target="_blank"
-               rel="noopener noreferrer"
-               style="display:inline-block; margin-top:10px; font-size:13px;
-                      font-weight:700; color:#0891B2; white-space:nowrap;">
-                📖 User Manual
-            </a>
-
-               
+                <div class="hero-title">
+                    {NAV_ICONS[page]} {page}
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div class="hero-subtitle">{PAGE_BLURBS[page]}</div>
+                <a class="manual-link"
+                   href="{MANUAL_URL}#{MANUAL_SECTIONS[page]}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   style="display:inline-block; margin-top:10px;
+                          font-size:13px; font-weight:700;
+                          color:#0891B2; white-space:nowrap;">
+                    📖 User Manual
+                </a>
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+    
 
 st.segmented_control(
     "Navigation",
