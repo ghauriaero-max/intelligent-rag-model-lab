@@ -712,3 +712,307 @@ footer.end{text-align:center;color:var(--muted);font-size:12px;padding:10px 0}
 </ul>
 <p class="toplink"><a href="#top">↑ Back to top</a></p>
 </section>
+
+<!-- ============================================================ -->
+<section class="page" id="agentic-rag">
+<h2>8 · 🔎 Agentic RAG</h2>
+<p><b>Purpose:</b> retrieve the most relevant synthetic technical-manual pages for a question, then compare ordinary TF-IDF ranking with a category-aware ranking strategy.</p>
+
+<div class="callout warn">
+  <div class="t">What “Agentic RAG” means here</div>
+  <p>This laboratory is an educational retrieval prototype. It does <b>not</b> call a large language model to write an answer, and it is not a fully autonomous agent. It retrieves evidence and shows how the ranking was produced. The word “agentic” describes the broader direction of the experiment, not a claim that this prototype plans or acts autonomously.</p>
+</div>
+
+<h3 id="rag-idea">8.1 The idea in plain words</h3>
+<p>Retrieval-Augmented Generation (RAG) systems first find relevant source material and then, in a full system, give that material to a language model to help generate an answer. Retrieval quality matters: if the right evidence is not found, a later answer may be incomplete or incorrect.</p>
+<div class="flow">
+  <div class="box"><b>1 · Question</b>Your technical query</div><div class="arr">→</div>
+  <div class="box p"><b>2 · Retrieve</b>TF-IDF similarity</div><div class="arr">→</div>
+  <div class="box a"><b>3 · Re-rank</b>Optional category bonus</div><div class="arr">→</div>
+  <div class="box g"><b>4 · Evidence</b>Ranked document cards</div>
+</div>
+<p>The app contains six short, artificial technical documents. It uses TF-IDF to compare words in your question with words in each document. The Naive Bayes classifier separately predicts a broad query category. In the category-aware strategy, documents whose category matches that prediction receive an additional score bonus.</p>
+
+<h3 id="rag-retrieval">8.2 How ranking works</h3>
+<h4>Baseline TF-IDF</h4>
+<p>TF-IDF converts words and short two-word phrases into weighted numerical features. Words that help distinguish one document from another receive more weight than very common words. The query and each document are represented in the same feature space, and cosine similarity scores how closely their vectors point in the same direction. Higher scores mean stronger lexical similarity, not guaranteed factual relevance.</p>
+<pre><code>TF-IDF score = cosine similarity(query vector, document vector)</code></pre>
+<p>The index uses English stop-word removal, one- and two-word phrases, and sublinear term-frequency scaling. The retrieval index is cached while the Streamlit process is running.</p>
+
+<h4>Naive Bayes category-aware ranking</h4>
+<p>The classifier predicts one of three categories: <code>preventive_maintenance</code>, <code>troubleshooting</code>, or <code>fault_isolation</code>. Category-aware ranking starts with the TF-IDF score and adds a configurable bonus to a document if its category matches the predicted category.</p>
+<pre><code>adjusted score = TF-IDF similarity + category bonus (when categories match)</code></pre>
+<p>The default bonus is 0.15 in the laboratory. A bonus can promote a document with a matching category, but it cannot guarantee that the document is correct or relevant. The best strategy depends on the question and on the quality of the categories and labels.</p>
+
+<h3 id="rag-screen">8.3 Screen map and controls</h3>
+<div class="screen">
+  <div class="r" style="grid-template-columns:1fr 2.3fr">
+    <div class="c"><span class="num">1</span><b>Question and controls</b><small>Query · number of documents · strategy · Run retrieval</small></div>
+    <div class="c"><span class="num">2</span><b>Results workspace</b><small>Four tabs for evidence, scores, classifier probabilities, and architecture</small></div>
+  </div>
+</div>
+<div class="tablewrap"><table>
+<tr><th>Control or panel</th><th>What it does</th></tr>
+<tr><td>Ask a technical question</td><td>Enter a question in ordinary English. The default asks what to investigate when equipment restarts unexpectedly.</td></tr>
+<tr><td>Number of documents to retrieve</td><td>Choose how many of the available documents to show. The maximum is limited by the corpus size.</td></tr>
+<tr><td>Retrieval strategy</td><td>Choose <b>Baseline TF-IDF</b> or <b>Naive Bayes category-aware</b>.</td></tr>
+<tr><td>Run retrieval</td><td>Classifies the query and computes the selected retrieval ranking. Results appear after you press the button.</td></tr>
+<tr><td>Retrieved evidence</td><td>Shows each result’s rank, document title, ID, category, score, and text.</td></tr>
+<tr><td>Score comparison</td><td>Displays the baseline similarity scores or the category-adjusted scores for the selected strategy.</td></tr>
+<tr><td>Classifier probabilities</td><td>Shows the predicted category probabilities. These are outputs of the small teaching classifier, not calibrated real-world confidence.</td></tr>
+<tr><td>Prototype architecture</td><td>Shows the path from query to TF-IDF retrieval and category-aware re-ranking.</td></tr>
+</table></div>
+
+<h3 id="rag-tabs">8.4 The four result tabs</h3>
+<ol>
+  <li><b>Retrieved evidence:</b> read the returned document text, not just the score. A high score means lexical similarity, not that the content is a verified answer.</li>
+  <li><b>Score comparison:</b> compare the numbers within the selected strategy. Baseline and adjusted scores are not identical measures because the latter may include a category bonus.</li>
+  <li><b>Classifier probabilities:</b> inspect whether the category prediction is decisive or divided among categories. A confidently displayed number can still be wrong when the training set is small.</li>
+  <li><b>Prototype architecture:</b> follow the flow between the user query, classifier, retriever, re-ranker, and retrieved documents.</li>
+</ol>
+
+<div class="callout try">
+  <div class="t">Try it</div>
+  <ol>
+    <li>Run the default question with <b>Baseline TF-IDF</b> and note the top three document IDs.</li>
+    <li>Switch to <b>Naive Bayes category-aware</b> and run it again.</li>
+    <li>Compare the ranking and scores. Ask whether the category prediction is reasonable for the question.</li>
+    <li>Try a question about packet loss, temperature, or unexpected resets. Observe when the category-aware method helps—and when it does not.</li>
+  </ol>
+</div>
+<p class="toplink"><a href="#top">↑ Back to top</a></p>
+</section>
+
+<!-- ============================================================ -->
+<section class="page" id="rag-eval">
+<h2>9 · 🧪 RAG Evaluation Lab</h2>
+<p><b>Purpose:</b> compare baseline TF-IDF retrieval with category-aware re-ranking on a small, fixed set of labelled technical questions.</p>
+
+<h3 id="ev-idea">9.1 Why evaluate retrieval?</h3>
+<p>A result list can look convincing without containing the document that answers the question. Evaluation compares returned document IDs with a manually prepared set of relevant IDs. It provides a repeatable way to compare strategies, but only to the extent that the questions and relevance labels are appropriate.</p>
+<div class="callout warn">
+  <div class="t">Small teaching benchmark</div>
+  <p>The experiment uses six synthetic documents and six manually labelled questions. It is useful for learning how metrics respond to ranking changes, but it is too small to establish general performance or support production claims.</p>
+</div>
+
+<h3 id="ev-set">9.2 Evaluation questions and relevance labels</h3>
+<p>The evaluation set contains the following questions and document IDs labelled relevant by the author:</p>
+<div class="tablewrap"><table>
+<tr><th>Question</th><th>Relevant document IDs</th></tr>
+<tr><td>Why is the equipment temperature increasing?</td><td><code>MAN-001</code></td></tr>
+<tr><td>Communication keeps dropping intermittently.</td><td><code>MAN-002</code></td></tr>
+<tr><td>The equipment is restarting unexpectedly.</td><td><code>MAN-003</code>, <code>MAN-006</code></td></tr>
+<tr><td>How should increasing packet loss be investigated?</td><td><code>MAN-004</code></td></tr>
+<tr><td>What should a preventive inspection include?</td><td><code>MAN-005</code></td></tr>
+<tr><td>What could cause resets due to unstable power?</td><td><code>MAN-006</code>, <code>MAN-003</code></td></tr>
+</table></div>
+<p>These labels are the benchmark’s <b>ground truth</b>. They are human-assigned for this teaching experiment, not independently validated expert judgements. If a question has several valid answers, the relevance set should include all of them.</p>
+
+<h3 id="ev-metrics">9.3 Metrics: Recall@3 and Mean Reciprocal Rank</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>Recall@3</h4>
+    <p>Measures the fraction of labelled relevant documents found in the first three results.</p>
+    <p><b>Formula:</b> relevant documents in top 3 ÷ all relevant documents for the question.</p>
+    <p>If one of two relevant documents appears in the top three, Recall@3 is 1/2 = 0.5.</p>
+  </div>
+  <div class="card">
+    <h4>Mean Reciprocal Rank (MRR)</h4>
+    <p>Rewards finding the first relevant document near the top of the ranking.</p>
+    <p><b>Reciprocal rank:</b> 1 ÷ rank of the first relevant result. If the first relevant result is rank 1, the score is 1; at rank 2, it is 0.5; at rank 3, it is about 0.333.</p>
+    <p><b>MRR:</b> the average reciprocal rank over all evaluation questions.</p>
+  </div>
+</div>
+<p>Recall@3 considers all labelled relevant documents in the first three positions. MRR focuses on how soon the first relevant result appears. A system can improve one metric without improving the other.</p>
+
+<h3 id="ev-screen">9.4 Screen map and controls</h3>
+<div class="screen">
+  <div class="r" style="grid-template-columns:1.2fr 1fr 1fr 1fr">
+    <div class="c"><span class="num">1</span><b>Category ranking bonus</b><small>Slider from 0.00 to 0.50</small></div>
+    <div class="c"><span class="num">2</span><b>Recall@3</b><small>Baseline and category-aware</small></div>
+    <div class="c"><span class="num">3</span><b>MRR</b><small>Baseline and category-aware</small></div>
+    <div class="c"><span class="num">4</span><b>Four analysis tabs</b><small>Overview · ranking · inspect · labels</small></div>
+  </div>
+</div>
+<p>The page recalculates the experiment when you change the <b>Category ranking bonus</b> slider. The default is 0.15 and the allowed range is 0.00–0.50 in steps of 0.05. The slider value is added to a document’s TF-IDF score when its category matches the predicted category.</p>
+
+<h3 id="ev-tabs">9.5 The four analysis tabs</h3>
+<div class="tablewrap"><table>
+<tr><th>Tab</th><th>What it shows</th><th>How to interpret it</th></tr>
+<tr><td><b>Overview</b></td><td>Grouped metric charts, per-question Recall@3, number of rankings changed, new successful hits, and lost successful hits.</td><td>Use the metrics and hit counts together. A ranking change alone is not an improvement.</td></tr>
+<tr><td><b>Ranking changes &amp; failure analysis</b></td><td>Question-level predicted categories, baseline and category-aware rankings, whether the ranking changed, and whether each ranking retrieved any labelled relevant document. An expander shows detailed metrics.</td><td>Inspect cases where category-aware retrieval gains or loses a hit. This helps reveal failure modes hidden by averages.</td></tr>
+<tr><td><b>Inspect a question</b></td><td>Choose one benchmark question and compare baseline and category-aware results side by side, with relevant results marked.</td><td>Read the IDs, titles, and scores to see exactly which documents moved.</td></tr>
+<tr><td><b>Ground-truth labels</b></td><td>Displays each evaluation question and its labelled relevant document IDs.</td><td>Use this to verify what the metrics consider correct. The system is only as reliable as these labels.</td></tr>
+</table></div>
+
+<h3 id="ev-caveats">9.6 Reading results carefully</h3>
+<ul>
+  <li><b>A ranking change is not automatically an improvement.</b> The category bonus may move a relevant document upward, leave the list unchanged, or push a relevant document down.</li>
+  <li><b>Zero bonus is a useful baseline.</b> It removes the category adjustment, so the comparison is driven by the TF-IDF ranking.</li>
+  <li><b>Do not overgeneralise from six questions.</b> One question can substantially change the average. A larger, diverse and independently labelled evaluation set is needed for stronger conclusions.</li>
+  <li><b>Review the labels.</b> If more than one document could reasonably answer a question, ensure the ground-truth list reflects that before treating a missed document as a system failure.</li>
+  <li><b>Metrics do not judge technical safety.</b> They measure agreement with the prepared labels, not whether advice is safe, complete, or suitable for real equipment.</li>
+</ul>
+<div class="callout try">
+  <div class="t">Try it</div>
+  <ol>
+    <li>Set the category bonus to 0.00 and note the baseline and category-aware metrics.</li>
+    <li>Increase the bonus gradually and watch the metrics and “Rankings changed” count.</li>
+    <li>Open the ranking analysis and identify a question that improved or regressed.</li>
+    <li>Inspect that question side by side. Explain which document moved and whether the move was useful according to the labels.</li>
+  </ol>
+</div>
+<p class="toplink"><a href="#top">↑ Back to top</a></p>
+</section>
+
+<!-- ============================================================ -->
+<section class="page" id="files">
+<h2>10 · Files and customising the laboratory</h2>
+<p>The application is designed as a small Streamlit project. The names below describe the expected project layout.</p>
+<div class="tablewrap"><table>
+<tr><th>Path</th><th>Purpose</th><th>Notes</th></tr>
+<tr><td><code>app.py</code></td><td>Main interface, model logic, synthetic training examples, retrieval, evaluation, and styling.</td><td>Most teaching values and UI behaviour are defined here.</td></tr>
+<tr><td><code>documents.py</code></td><td>Defines the small synthetic document collection, usually as <code>DOCUMENTS</code>.</td><td>Each document includes an ID, title, category, and text used for retrieval.</td></tr>
+<tr><td><code>m2_ai_logo.png</code></td><td>Optional logo image.</td><td>If the image is not available, the application can display a text fallback.</td></tr>
+<tr><td><code>static/user_manual.html</code></td><td>This standalone manual.</td><td>Keep the directory and filename exactly as shown, including lowercase spelling.</td></tr>
+<tr><td><code>.streamlit/config.toml</code></td><td>Streamlit configuration, including static-file serving and theme settings.</td><td>For the manual link, static serving must be enabled.</td></tr>
+</table></div>
+
+<h3>10.1 Run locally</h3>
+<pre><code>streamlit run app.py</code></pre>
+<p>Run the command from the project directory using the Python environment in which the required packages are installed. Streamlit normally opens the application at <code>http://localhost:8501</code>.</p>
+
+<h3>10.2 Enable static serving for the manual</h3>
+<p>For a manual stored at <code>static/user_manual.html</code> in the repository root, the configuration should include:</p>
+<pre><code>[server]
+enableStaticServing = true</code></pre>
+<p>Keep this setting in <code>.streamlit/config.toml</code> and commit it to the same branch deployed by Streamlit Community Cloud. After configuration changes, restart or reboot the app. With static serving enabled, the expected URL for this file is:</p>
+<pre><code>/app/static/user_manual.html</code></pre>
+<div class="callout warn">
+  <div class="t">Deployment checklist</div>
+  <ul>
+    <li>Confirm the deployed repository and branch contain the latest <code>app.py</code>, <code>.streamlit/config.toml</code>, and <code>static/user_manual.html</code>.</li>
+    <li>Check spelling and case: <code>static</code> and <code>user_manual.html</code> must match the actual paths.</li>
+    <li>Open the direct manual URL. In browser DevTools → Network, confirm that the HTML request returns the intended file, not merely a successful HTTP status.</li>
+    <li>If you update the manual, commit the updated file and wait for the deployed app to use the new commit.</li>
+  </ul>
+</div>
+
+<h3>10.3 Customising the teaching models</h3>
+<ul>
+  <li><b>Naive Bayes:</b> edit the labelled training phrases and categories in the training-data section of <code>app.py</code>. Keep category names consistent with the documents’ category fields.</li>
+  <li><b>Retrieval corpus:</b> edit the document records in <code>documents.py</code>. Give each document a unique ID and informative title/text. Rebuild or invalidate the cached retrieval index after changing the corpus during a running session.</li>
+  <li><b>HMM:</b> edit the starting, transition, and emission probabilities in the HMM section of <code>app.py</code>. Each probability distribution should sum to 1 (allowing for rounding).</li>
+  <li><b>VAE:</b> the synthetic training-data generation, model architecture, scaler, and anomaly threshold are defined in <code>app.py</code>. Changing these values changes what the model learns and how its error is interpreted.</li>
+  <li><b>Evaluation:</b> edit the questions and relevant document IDs in <code>EVALUATION_SET</code>. Keep IDs aligned with the corpus and document why each label is considered relevant.</li>
+  <li><b>Appearance:</b> theme colours and CSS are defined in the application. The manual’s layout and colours are defined in the <code>&lt;style&gt;</code> block near the top of this HTML file.</li>
+</ul>
+<p>After changing model data, rerun the relevant experiments and check whether the explanatory text still accurately describes the implementation. Teaching documentation should be updated whenever controls, algorithms, or defaults change.</p>
+<p class="toplink"><a href="#top">↑ Back to top</a></p>
+</section>
+
+<!-- ============================================================ -->
+<section class="page" id="troubleshooting">
+<h2>11 · Troubleshooting</h2>
+<div class="tablewrap"><table>
+<tr><th>Symptom</th><th>Likely explanation</th><th>What to check</th></tr>
+<tr><td>The manual link gives 404</td><td>Static serving is disabled, the file is in the wrong folder, the filename/case differs, or the deployed branch does not contain it.</td><td>Check <code>enableStaticServing = true</code>, confirm <code>static/user_manual.html</code> is committed at the repository root, verify the deployed branch, then reboot the app.</td></tr>
+<tr><td>The direct manual URL returns 200 but appears blank or keeps showing a spinner</td><td>The response may not contain the expected manual, or the browser may be displaying a different response than expected.</td><td>In DevTools → Network, select <code>user_manual.html</code>, inspect the Response tab, and confirm it begins with <code>&lt;!DOCTYPE html&gt;</code>. Then inspect Console errors and the document title.</td></tr>
+<tr><td>The manual opens locally but not on Streamlit Cloud</td><td>Local and deployed files/configuration may differ, or Cloud may be deploying another branch/commit.</td><td>Compare the repository tree and deployed branch; verify the exact filename, config, and commit; reboot after confirming the deployment.</td></tr>
+<tr><td>The manual opens but a section link does not jump to the right place</td><td>The URL fragment does not match an element ID, or the target section is absent from the HTML.</td><td>Check that the link uses a fragment such as <code>#vae-lab</code> and the page contains the matching <code>id="vae-lab"</code>.</td></tr>
+<tr><td>A model chart or result disappears after changing a control</td><td>Streamlit reruns the script when a widget changes. Results may be shown only after the relevant button is pressed again.</td><td>Follow the instructions on the tab and press its action button again if needed.</td></tr>
+<tr><td>Retrieval returns unexpected documents</td><td>TF-IDF is lexical: it depends on overlapping terms and phrases. The category bonus can also alter the order.</td><td>Compare baseline and category-aware ranking, inspect document text and scores, and try alternate query wording.</td></tr>
+<tr><td>Classifier probabilities look certain but the category is wrong</td><td>The classifier uses a tiny synthetic training set and its probabilities are not calibrated for real technical questions.</td><td>Inspect the training phrases and probability distribution; treat predictions as demonstrations, not verified diagnoses.</td></tr>
+<tr><td>VAE flags normal-looking readings or misses an unusual reading</td><td>The VAE is trained on synthetic normal data, uses a compressed representation, and applies a teaching threshold.</td><td>Inspect the reconstruction error and threshold. Do not interpret the verdict as a real equipment safety decision.</td></tr>
+<tr><td>HMM gives a surprising hidden-state sequence</td><td>The result follows the starting, transition, and emission probabilities plus the chosen observation order.</td><td>Check the observation order and probability tables. The model values are illustrative, not learned from real equipment.</td></tr>
+<tr><td>The evaluation score changes sharply</td><td>The benchmark has only six questions, so individual cases have a large effect.</td><td>Inspect question-level rankings, check relevance labels, and avoid drawing broad conclusions from the small set.</td></tr>
+</table></div>
+
+<h3>11.1 A practical checklist for the manual loading issue</h3>
+<ol>
+  <li>Open <code>https://YOUR-APP.streamlit.app/app/static/user_manual.html</code> directly, replacing the example host with your deployed app’s host.</li>
+  <li>In DevTools → Network, select the request and check its status, response body, and transferred size.</li>
+  <li>In the Response tab, verify that the response starts with the manual’s HTML doctype and includes the expected section content.</li>
+  <li>In Console, check for errors that occur at the same time as the failure. Browser warnings about unsupported feature policies do not necessarily prevent the page from rendering.</li>
+  <li>Compare the deployed file with the complete local copy and verify the exact commit and branch in Streamlit Cloud.</li>
+</ol>
+<p class="toplink"><a href="#top">↑ Back to top</a></p>
+</section>
+
+<!-- ============================================================ -->
+<section class="page" id="limitations">
+<h2>12 · Limitations and responsible interpretation</h2>
+<ul>
+  <li><b>Synthetic evidence:</b> sensor readings, training phrases, model probabilities, document text, and evaluation labels are artificial or hand-authored for education.</li>
+  <li><b>Not a maintenance authority:</b> the app is not validated against real equipment, service bulletins, engineering limits, or maintenance procedures. Do not use its output to make operational or safety decisions.</li>
+  <li><b>Small classifier training set:</b> Naive Bayes learns from only a small number of phrases. Unseen vocabulary, ambiguous wording, and topics outside the examples can lead to weak or misleading predictions.</li>
+  <li><b>Lexical retrieval:</b> TF-IDF relies on word and phrase overlap. It does not understand technical meaning in the way a domain expert or a well-designed semantic retrieval system might.</li>
+  <li><b>Category-aware re-ranking is heuristic:</b> the bonus may improve or worsen ranking. A category match is not proof that a document answers the question.</li>
+  <li><b>VAE anomaly detection:</b> the model learns a synthetic representation of normal examples. An anomaly means the input differs from that training pattern; it does not prove a fault or identify its cause.</li>
+  <li><b>HMM assumptions:</b> the state-transition and symptom-emission probabilities are written for teaching. Real systems may violate the model assumptions and require data-based estimation and validation.</li>
+  <li><b>Evaluation scope:</b> six questions are too few to provide a stable benchmark. Metrics reflect the supplied labels and corpus, not general retrieval quality.</li>
+  <li><b>No generated grounded answer:</b> the Agentic RAG tab retrieves evidence and displays scores; it does not call an LLM to synthesize an answer from the retrieved text.</li>
+  <li><b>Demonstration, not production:</b> the prototype does not provide production monitoring, access control, audit trails, data governance, security hardening, or validated technical workflows.</li>
+</ul>
+<div class="callout key">
+  <div class="t">The right way to use this laboratory</div>
+  <p>Use it to learn model behaviour, inspect assumptions, compare algorithms, and practise reading metrics. For real technical work, use approved manuals and procedures, validate methods on representative data, and have qualified personnel review conclusions.</p>
+</div>
+<p class="toplink"><a href="#top">↑ Back to top</a></p>
+</section>
+
+<!-- ============================================================ -->
+<section class="page" id="glossary">
+<h2>13 · Glossary</h2>
+<dl class="gloss">
+<dt>Anomaly</dt><dd>An input that differs substantially from patterns the model learned as normal. It is not automatically a fault.</dd>
+<dt>Baseline</dt><dd>A reference method used for comparison. Here it means TF-IDF retrieval without a category bonus.</dd>
+<dt>Category-aware re-ranking</dt><dd>Reordering retrieved documents using both their similarity score and whether their category matches the classifier’s predicted category.</dd>
+<dt>Cosine similarity</dt><dd>A measure of the angle between two vectors. In this app it measures how similar the TF-IDF representations of a query and a document are.</dd>
+<dt>Emission probability</dt><dd>In an HMM, the probability of observing a particular symptom given a hidden state.</dd>
+<dt>Evaluation set</dt><dd>A fixed collection of questions and their labelled relevant documents used to compare retrieval strategies.</dd>
+<dt>Feature</dt><dd>A measurable input variable used by a model, such as temperature or a numerical representation of a word.</dd>
+<dt>Ground truth</dt><dd>The prepared reference answer used to judge a model output. In this app, it is a manually assigned list of relevant document IDs.</dd>
+<dt>Hidden state</dt><dd>A condition that the HMM does not observe directly but attempts to infer from visible symptoms.</dd>
+<dt>HMM (Hidden Markov Model)</dt><dd>A probabilistic sequence model defined by starting-state probabilities, transition probabilities, and emission probabilities.</dd>
+<dt>Inference</dt><dd>Using a trained or specified model to produce a prediction or score for an input.</dd>
+<dt>Mean Reciprocal Rank (MRR)</dt><dd>The average of the reciprocal rank of the first relevant result across evaluation questions. Higher is better when the relevance labels are appropriate.</dd>
+<dt>Naive Bayes</dt><dd>A probabilistic classifier based on Bayes’ theorem and a simplifying conditional-independence assumption about features.</dd>
+<dt>Recall@3</dt><dd>The fraction of labelled relevant documents that appear among the first three retrieved results.</dd>
+<dt>Reconstruction</dt><dd>The output produced when a model attempts to rebuild its input. The VAE compares this output with the original readings.</dd>
+<dt>Reconstruction error</dt><dd>A numerical measure of the difference between an input and its reconstruction. In this VAE lab, it is the mean squared difference in standardised feature space.</dd>
+<dt>Retrieval</dt><dd>Finding and ranking documents that may be useful for answering a question.</dd>
+<dt>RAG (Retrieval-Augmented Generation)</dt><dd>A system pattern in which retrieved source material is supplied to a generative model to support an answer. This prototype demonstrates retrieval, not answer generation.</dd>
+<dt>TF-IDF</dt><dd>Term Frequency–Inverse Document Frequency, a method for weighting words according to their frequency in a text and how distinctive they are across a collection.</dd>
+<dt>Transition probability</dt><dd>In an HMM, the probability of moving from one hidden state to another at the next time step.</dd>
+<dt>Training data</dt><dd>Examples used to fit a model or define its behaviour. The app’s training data is small and synthetic.</dd>
+<dt>VAE (Variational Autoencoder)</dt><dd>A neural network that learns a compressed latent representation and reconstructs inputs. This lab uses reconstruction error as a teaching example of anomaly detection.</dd>
+<dt>Viterbi algorithm</dt><dd>A dynamic-programming algorithm that finds the most probable sequence of hidden states for a sequence of observations under an HMM.</dd>
+</dl>
+<p class="toplink"><a href="#top">↑ Back to top</a></p>
+</section>
+
+<footer class="end">M² AI · Technical AI Model Laboratory · User Manual and Reference Guide</footer>
+<script>
+/* Highlight the current table-of-contents link without external libraries. */
+(() => {
+  const links = Array.from(document.querySelectorAll('nav.toc a[href^="#"]'));
+  const sections = Array.from(document.querySelectorAll('main section[id], main header[id]'));
+  if (!('IntersectionObserver' in window) || !sections.length) return;
+  const byId = new Map(links.map(link => [link.getAttribute('href').slice(1), link]));
+  const observer = new IntersectionObserver(entries => {
+    const visible = entries
+      .filter(entry => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (!visible) return;
+    links.forEach(link => link.classList.remove('active'));
+    const link = byId.get(visible.target.id);
+    if (link) link.classList.add('active');
+  }, { rootMargin: '-10% 0px -70% 0px', threshold: [0, 0.1, 0.25, 0.5] });
+  sections.forEach(section => observer.observe(section));
+})();
+</script>
+</main>
+</div>
+</body>
+</html>
