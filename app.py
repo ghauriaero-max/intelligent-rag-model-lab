@@ -1231,6 +1231,24 @@ st.markdown(
     button[data-testid="stBaseButton-segmented_controlActive"] p {{
         color: {CYAN} !important;
     }}
+
+    /* Metric text must wrap instead of being cut off with "..." */
+    div[data-testid="stMetricValue"] > div,
+    div[data-testid="stMetricLabel"] p,
+    div[data-testid="stMetricLabel"] > div {{
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+    }}
+
+    .st-key-vae_summary div[data-testid="stMetricValue"] {{
+        font-size: 1.15rem;
+    }}
+
+    .st-key-vae_summary div[data-testid="stMetricLabel"] {{
+        font-size: 0.7rem;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -1369,7 +1387,7 @@ if page == "VAE Laboratory":
     model, scaler, normal_data, threshold, train_errors = train_vae()
 
     control_col, gauge_col, summary_col = st.columns(
-        [1.15, 1.2, 1.05],
+        [1.1, 1.0, 1.5],
         gap="medium",
     )
 
@@ -1539,7 +1557,7 @@ if page == "VAE Laboratory":
     })
 
     with summary_col:
-        with st.container(border=True):
+        with st.container(border=True, key="vae_summary"):
             st.markdown("#### Model summary")
 
             m1, m2, m3 = st.columns(3)
