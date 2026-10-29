@@ -33,17 +33,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-BG = "#080D18"
-PANEL = "#111827"
-BORDER = "#263449"
-CYAN = "#22D3EE"
-BLUE = "#60A5FA"
-PURPLE = "#A78BFA"
-GREEN = "#34D399"
-ORANGE = "#FBBF24"
-RED = "#FB7185"
-TEXT = "#E5E7EB"
-MUTED = "#94A3B8"
+BG = "#F4F7FB"
+PANEL = "#FFFFFF"
+BORDER = "#D5DEEA"
+CYAN = "#0891B2"
+BLUE = "#2563EB"
+PURPLE = "#7C3AED"
+GREEN = "#059669"
+ORANGE = "#D97706"
+RED = "#E11D48"
+TEXT = "#0F172A"
+MUTED = "#64748B"
 
 
 st.markdown(
@@ -58,9 +58,9 @@ st.markdown(
     .stApp {{
         background:
             radial-gradient(900px 500px at 8% -10%,
-                rgba(34, 211, 238, 0.10), transparent 60%),
+                rgba(8, 145, 178, 0.10), transparent 60%),
             radial-gradient(800px 500px at 100% 0%,
-                rgba(167, 139, 250, 0.10), transparent 55%),
+                rgba(124, 58, 237, 0.08), transparent 55%),
             {BG};
         color: {TEXT};
     }}
@@ -98,7 +98,7 @@ st.markdown(
     h4 {{
         font-weight: 700 !important;
         font-size: 1rem !important;
-        color: #CBD5E1 !important;
+        color: #334155 !important;
     }}
 
     p, li, label {{ color: {TEXT}; }}
@@ -112,10 +112,10 @@ st.markdown(
         border: 1px solid {BORDER};
         border-radius: 18px;
         background:
-            linear-gradient(120deg, rgba(34, 211, 238, 0.07),
-                            rgba(167, 139, 250, 0.07)),
-            #0F172A;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            linear-gradient(120deg, rgba(8, 145, 178, 0.08),
+                            rgba(124, 58, 237, 0.07)),
+            #FFFFFF;
+        box-shadow: 0 8px 26px rgba(15, 23, 42, 0.08);
         margin-bottom: 22px;
         overflow: hidden;
     }}
@@ -131,7 +131,7 @@ st.markdown(
     .hero-title {{
         font-size: 30px;
         font-weight: 800;
-        color: #F8FAFC;
+        color: #0F172A;
         margin: 2px 0 6px 0;
     }}
 
@@ -159,25 +159,27 @@ st.markdown(
         letter-spacing: 1px;
         text-transform: uppercase;
         color: {CYAN};
-        background: rgba(34, 211, 238, 0.10);
-        border: 1px solid rgba(34, 211, 238, 0.35);
+        background: rgba(8, 145, 178, 0.10);
+        border: 1px solid rgba(8, 145, 178, 0.35);
         border-radius: 999px;
     }}
 
     /* ---------- Cards ---------- */
     .panel {{
-        background: linear-gradient(180deg, #131C2E, {PANEL});
+        background: linear-gradient(180deg, #FFFFFF, #F8FAFD);
         border: 1px solid {BORDER};
         border-radius: 14px;
         padding: 18px 20px;
         margin-bottom: 15px;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
-        transition: transform .15s ease, border-color .15s ease;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+        transition: transform .15s ease, border-color .15s ease,
+                    box-shadow .15s ease;
     }}
 
     .panel:hover {{
         transform: translateY(-2px);
-        border-color: #35476A;
+        border-color: #B6C4D9;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.10);
     }}
 
     .panel-label {{
@@ -191,7 +193,7 @@ st.markdown(
     .panel-value {{
         font-size: 28px;
         font-weight: 800;
-        color: #F8FAFC;
+        color: #0F172A;
         margin-top: 7px;
     }}
 
@@ -207,14 +209,14 @@ st.markdown(
         border-radius: 50%;
         background: {GREEN};
         margin-right: 8px;
-        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+        box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6);
         animation: pulse 2s infinite;
     }}
 
     @keyframes pulse {{
-        0%   {{ box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }}
-        70%  {{ box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }}
-        100% {{ box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }}
+        0%   {{ box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5); }}
+        70%  {{ box-shadow: 0 0 0 8px rgba(5, 150, 105, 0); }}
+        100% {{ box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }}
     }}
 
     .small-muted {{ color: {MUTED}; font-size: 12px; }}
@@ -227,12 +229,12 @@ st.markdown(
 
     /* ---------- Metrics ---------- */
     div[data-testid="stMetric"] {{
-        background: linear-gradient(180deg, #131C2E, {PANEL});
+        background: linear-gradient(180deg, #FFFFFF, #F8FAFD);
         border: 1px solid {BORDER};
         border-left: 3px solid {CYAN};
         padding: 14px 16px;
         border-radius: 12px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+        box-shadow: 0 3px 12px rgba(15, 23, 42, 0.06);
     }}
 
     div[data-testid="stMetricLabel"] {{
@@ -243,7 +245,7 @@ st.markdown(
     }}
 
     div[data-testid="stMetricValue"] {{
-        color: #F8FAFC;
+        color: #0F172A;
         font-weight: 800;
     }}
 
@@ -252,10 +254,12 @@ st.markdown(
         border-radius: 10px;
         font-weight: 700;
         border: 1px solid {BORDER};
-        background: #131C2E;
+        background: #FFFFFF;
         color: {TEXT};
         transition: all .15s ease;
     }}
+
+    .stButton > button p {{ color: inherit; }}
 
     .stButton > button:hover {{
         border-color: {CYAN};
@@ -264,23 +268,25 @@ st.markdown(
     }}
 
     .stButton > button[kind="primary"] {{
-        background: linear-gradient(90deg, #06B6D4, #3B82F6);
+        background: linear-gradient(90deg, #0891B2, #2563EB);
         border: none;
-        color: #04111C;
-        box-shadow: 0 6px 18px rgba(34, 211, 238, 0.25);
+        color: #FFFFFF;
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
     }}
 
+    .stButton > button[kind="primary"] p {{ color: #FFFFFF !important; }}
+
     .stButton > button[kind="primary"]:hover {{
-        color: #04111C;
-        filter: brightness(1.1);
-        box-shadow: 0 8px 22px rgba(34, 211, 238, 0.35);
+        color: #FFFFFF;
+        filter: brightness(1.08);
+        box-shadow: 0 8px 22px rgba(37, 99, 235, 0.35);
     }}
 
     /* ---------- Inputs ---------- */
     .stTextArea textarea,
     .stTextInput input,
     div[data-baseweb="select"] > div {{
-        background: #0E1626 !important;
+        background: #FFFFFF !important;
         border: 1px solid {BORDER} !important;
         border-radius: 10px !important;
         color: {TEXT} !important;
@@ -297,6 +303,7 @@ st.markdown(
         border: 1px solid {BORDER};
         border-radius: 12px;
         overflow: hidden;
+        background: #FFFFFF;
     }}
 
     /* ---------- Alerts ---------- */
@@ -309,14 +316,14 @@ st.markdown(
     details[data-testid="stExpander"] {{
         border: 1px solid {BORDER};
         border-radius: 12px;
-        background: #0E1626;
+        background: #FFFFFF;
     }}
 
     button[data-baseweb="tab"] {{ font-weight: 700; }}
 
     /* ---------- Sidebar ---------- */
     [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, #0C1424, #080D18);
+        background: linear-gradient(180deg, #FFFFFF, #EEF3FA);
         border-right: 1px solid {BORDER};
     }}
 
@@ -340,21 +347,21 @@ st.markdown(
     }}
 
     [data-testid="stSidebar"] div[role="radiogroup"] > label:hover {{
-        background: rgba(34, 211, 238, 0.07);
+        background: rgba(8, 145, 178, 0.07);
         border-color: {BORDER};
     }}
 
     [data-testid="stSidebar"] div[role="radiogroup"]
         > label:has(input:checked) {{
         background: linear-gradient(90deg,
-            rgba(34, 211, 238, 0.18), rgba(96, 165, 250, 0.08));
-        border-color: rgba(34, 211, 238, 0.5);
+            rgba(8, 145, 178, 0.16), rgba(37, 99, 235, 0.06));
+        border-color: rgba(8, 145, 178, 0.45);
         box-shadow: inset 3px 0 0 {CYAN};
     }}
 
     [data-testid="stSidebar"] div[role="radiogroup"]
         > label:has(input:checked) p {{
-        color: #F8FAFC;
+        color: #0F172A;
         font-weight: 700;
     }}
 
@@ -371,10 +378,10 @@ st.markdown(
     /* ---------- Scrollbars ---------- */
     ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
     ::-webkit-scrollbar-thumb {{
-        background: #263449;
+        background: #C5D1E3;
         border-radius: 8px;
     }}
-    ::-webkit-scrollbar-thumb:hover {{ background: #35476A; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: #A9B9D1; }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -430,12 +437,12 @@ def style_plot(fig, height=350):
     )
 
     fig.update_xaxes(
-        gridcolor="rgba(38, 52, 73, 0.6)",
+        gridcolor="rgba(148, 163, 184, 0.35)",
         zerolinecolor=BORDER,
         linecolor=BORDER,
     )
     fig.update_yaxes(
-        gridcolor="rgba(38, 52, 73, 0.6)",
+        gridcolor="rgba(148, 163, 184, 0.35)",
         zerolinecolor=BORDER,
         linecolor=BORDER,
     )
@@ -1238,7 +1245,7 @@ if page == "VAE Laboratory":
         with st.container(border=True):
             st.markdown("#### Reconstruction error")
 
-            status_color = "#FB7185" if is_anomaly else "#34D399"
+            status_color = "#E11D48" if is_anomaly else "#059669"
             status_text = (
                 "ANOMALY DETECTED"
                 if is_anomaly
@@ -1253,14 +1260,14 @@ if page == "VAE Laboratory":
                         "valueformat": ".4f",
                         "font": {
                             "size": 36,
-                            "color": "#E5E7EB",
+                            "color": "#0F172A",
                         },
                     },
                     title={
                         "text": "Reconstruction error",
                         "font": {
                             "size": 14,
-                            "color": "#94A3B8",
+                            "color": "#64748B",
                         },
                     },
                     gauge={
@@ -1273,18 +1280,18 @@ if page == "VAE Laboratory":
                                     0.01,
                                 ),
                             ],
-                            "tickcolor": "#94A3B8",
+                            "tickcolor": "#64748B",
                         },
                         "bar": {"color": status_color},
-                        "bgcolor": "#111827",
-                        "bordercolor": "#263449",
+                        "bgcolor": "#FFFFFF",
+                        "bordercolor": "#D5DEEA",
                         "steps": [
                             {
                                 "range": [
                                     0,
                                     threshold_value,
                                 ],
-                                "color": "#12352F",
+                                "color": "#D1FAE5",
                             },
                             {
                                 "range": [
@@ -1295,12 +1302,12 @@ if page == "VAE Laboratory":
                                         0.01,
                                     ),
                                 ],
-                                "color": "#3A202B",
+                                "color": "#FFE4E6",
                             },
                         ],
                         "threshold": {
                             "line": {
-                                "color": "#FBBF24",
+                                "color": "#D97706",
                                 "width": 4,
                             },
                             "thickness": 0.8,
@@ -1313,7 +1320,7 @@ if page == "VAE Laboratory":
             fig_gauge.update_layout(
                 height=275,
                 paper_bgcolor="rgba(0,0,0,0)",
-                font={"color": "#E5E7EB"},
+                font={"color": "#0F172A"},
                 margin={"l": 25, "r": 25, "t": 55, "b": 15},
             )
 
@@ -1410,8 +1417,8 @@ if page == "VAE Laboratory":
                 barmode="group",
                 title="Telemetry compared with VAE output",
                 color_discrete_map={
-                    "Input": "#22D3EE",
-                    "Reconstruction": "#A78BFA",
+                    "Input": "#0891B2",
+                    "Reconstruction": "#7C3AED",
                 },
             )
 
@@ -1453,8 +1460,8 @@ if page == "VAE Laboratory":
                 color="Latent dimension",
                 title="Encoder latent mean",
                 color_discrete_map={
-                    "z1": "#22D3EE",
-                    "z2": "#A78BFA",
+                    "z1": "#0891B2",
+                    "z2": "#7C3AED",
                 },
             )
 
@@ -1472,20 +1479,20 @@ if page == "VAE Laboratory":
                 nbins=35,
                 title="Synthetic normal training distribution",
                 labels={"x": "Reconstruction error"},
-                color_discrete_sequence=["#60A5FA"],
+                color_discrete_sequence=["#2563EB"],
             )
 
             fig_errors.add_vline(
                 x=threshold_value,
                 line_dash="dash",
-                line_color="#FBBF24",
+                line_color="#D97706",
                 annotation_text="Threshold",
             )
 
             fig_errors.add_vline(
                 x=error,
                 line_dash="solid",
-                line_color="#FB7185",
+                line_color="#E11D48",
                 annotation_text="Current input",
             )
 
@@ -1923,14 +1930,14 @@ elif page == "Agentic RAG":
             node [
                 shape=box,
                 style="rounded,filled",
-                fillcolor="#111827",
-                color="#22D3EE",
-                fontcolor="white",
+                fillcolor="#FFFFFF",
+                color="#0891B2",
+                fontcolor="#0F172A",
                 fontname="Arial"
             ];
             edge [
                 color="#64748B",
-                fontcolor="white",
+                fontcolor="#0F172A",
                 fontname="Arial"
             ];
 
