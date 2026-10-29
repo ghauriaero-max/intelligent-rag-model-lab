@@ -1,308 +1,513 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-import torch
-import torch.nn as nn
 
-from sklearn.preprocessing import StandardScaler
+import streamlit as st
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.pipeline import Pipeline
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
 from documents import DOCUMENTS
 
+
+# ============================================================
+# 1. PAGE CONFIGURATION AND THEME
+# ============================================================
+
 st.set_page_config(
     page_title="Technical AI Model Laboratory",
-    page_icon="🛠️",
+    page_icon="🧠",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# ---------- Readable dark theme ----------
-BG, PANEL, BORDER = "#071321", "#12263B", "#29445F"
-TEXT, MUTED = "#F0F6FF", "#C2D3E6"
-BLUE, CYAN, ORANGE = "#22A7F0", "#38C8F4", "#FF9B45"
-GREEN, RED, PURPLE, YELLOW = "#19D99A", "#FF5964", "#B78CFF", "#FFD84D"
-
-st.markdown(f"""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-html,body,[class*="css"]{{font-family:Inter,Arial,sans-serif!important}}
-.stApp{{background:radial-gradient(ellipse at 55% 0%,#102943 0%,{BG} 58%);color:{TEXT}}}
-.block-container{{max-width:1800px;padding:1.1rem 1.35rem 2rem}}
-[data-testid="stSidebar"]{{background:linear-gradient(180deg,#0D1B2B,#091625);border-right:1px solid {BORDER}}}
-h1{{font-size:2.1rem!important;color:{TEXT}!important;font-weight:800!important}}
-h2{{font-size:1.55rem!important;color:{TEXT}!important}}
-h3{{font-size:1.12rem!important;color:{TEXT}!important}}
-p,li,label,.stMarkdown{{color:{TEXT};font-size:15px;line-height:1.55}}
-[data-testid="stCaptionContainer"] p{{color:{MUTED}!important;font-size:13px!important}}
-.brand{{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:2px 2px 15px;border-bottom:1px solid {BORDER};margin-bottom:15px}}
-.brand-left{{display:flex;align-items:center;gap:17px}}
-.brand-icon{{font-size:36px;background:#123454;border-radius:14px;padding:8px 14px}}
-.brand-title{{font-size:29px;font-weight:800;color:#F4F8FF;line-height:1.2}}
-.brand-sub{{font-size:17px;color:#C5D6EA;margin-top:4px}}
-.online{{border:1px solid #00B987;background:#06352F;color:#45F0B7;padding:8px 13px;border-radius:9px;font-weight:700;font-size:13px;text-align:center}}
-.micro{{font-size:12px;color:{MUTED};text-align:right;margin-top:6px}}
-.section-title{{font-size:23px;font-weight:800;border-left:4px solid {BLUE};padding-left:13px;margin:6px 0}}
-.section-sub{{font-size:15px;color:#C6D5E7;margin:0 0 16px 17px}}
-.panel{{background:linear-gradient(145deg,#142A40,#0F2032);border:1px solid {BORDER};border-radius:13px;padding:15px 16px}}
-.ptitle{{font-size:16px;font-weight:750;color:#F1F6FF;margin-bottom:12px}}
-.takeaway{{background:linear-gradient(110deg,#211F43,#17243B);border:1px solid #51447B;border-radius:13px;padding:16px 18px}}
-.take-title{{font-size:16px;font-weight:750;color:#D2B4FF;margin-bottom:8px}}
-div[data-testid="stMetric"]{{background:{PANEL};border:1px solid {BORDER};border-radius:11px;padding:12px 15px}}
-div[data-testid="stMetricLabel"]{{color:{MUTED}!important;font-size:13px!important}}
-div[data-testid="stMetricValue"]{{color:{CYAN}!important;font-size:27px!important;font-weight:800!important}}
-.stButton>button{{background:linear-gradient(90deg,#1267B7,#0B8CBF);color:white!important;border:1px solid #3DABEC;border-radius:9px;min-height:42px;font-weight:750!important}}
-.stButton>button:hover{{background:#147DBE;border-color:#8BD9FF}}
-.stTextInput input,.stTextArea textarea{{background:#0B1B2C!important;color:#F5F9FF!important;border:1px solid #3D5876!important;font-size:15px!important}}
-div[data-baseweb="select"]>div{{background:#0B1B2C!important;color:#F5F9FF!important;border-color:#3D5876!important}}
-div[data-testid="stSlider"] label{{color:#F0F6FF!important;font-size:14px!important}}
-div[data-testid="stDataFrame"]{{border:1px solid {BORDER};border-radius:9px}}
-hr{{border-color:{BORDER}}}
-@media(max-width:900px){{.brand-title{{font-size:21px}}.brand-sub{{font-size:13px}}.online{{display:none}}.block-container{{padding:.8rem}}}}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------- Synthetic Naive Bayes training data ----------
-TRAINING_DATA = [
-    ("What causes packet loss and poor communication?", "troubleshooting"),
-    ("How can I investigate an intermittent connection?", "troubleshooting"),
-    ("Why is the communication link unstable?", "troubleshooting"),
-    ("What causes degraded link quality?", "troubleshooting"),
-    ("Why does the equipment restart repeatedly?", "fault_isolation"),
-    ("How can I investigate unexpected restarts?", "fault_isolation"),
-    ("Could unstable power cause a system reset?", "fault_isolation"),
-    ("What can cause repeated equipment resets?", "fault_isolation"),
-    ("How should I inspect equipment regularly?", "preventive_maintenance"),
-    ("What are the routine inspection steps?", "preventive_maintenance"),
-    ("How should operating temperature be monitored?", "preventive_maintenance"),
-    ("What should a preventive inspection include?", "preventive_maintenance"),
-]
+BG = "#080D18"
+PANEL = "#111827"
+BORDER = "#263449"
+CYAN = "#22D3EE"
+BLUE = "#60A5FA"
+PURPLE = "#A78BFA"
+GREEN = "#34D399"
+ORANGE = "#FBBF24"
+RED = "#FB7185"
+TEXT = "#E5E7EB"
+MUTED = "#94A3B8"
 
 
-# ---------- TF-IDF document retrieval ----------
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background: {BG};
+        color: {TEXT};
+    }}
+
+    [data-testid="stSidebar"] {{
+        background: #0B1220;
+        border-right: 1px solid {BORDER};
+    }}
+
+    .block-container {{
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+        max-width: 1600px;
+    }}
+
+    h1, h2, h3 {{
+        color: {TEXT} !important;
+        letter-spacing: -0.4px;
+    }}
+
+    p, li, label {{
+        color: {TEXT};
+    }}
+
+    .hero {{
+        padding: 26px 30px;
+        border: 1px solid {BORDER};
+        border-radius: 18px;
+        background:
+            linear-gradient(120deg, #111827 0%, #101B30 60%,
+            #17243A 100%);
+        margin-bottom: 24px;
+    }}
+
+    .hero-title {{
+        font-size: 31px;
+        font-weight: 800;
+        color: #F8FAFC;
+        margin-bottom: 8px;
+    }}
+
+    .hero-subtitle {{
+        font-size: 15px;
+        color: {MUTED};
+        line-height: 1.7;
+    }}
+
+    .eyebrow {{
+        color: {CYAN};
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }}
+
+    .panel {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 15px;
+    }}
+
+    .panel-label {{
+        font-size: 12px;
+        color: {MUTED};
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+    }}
+
+    .panel-value {{
+        font-size: 28px;
+        font-weight: 800;
+        color: #F8FAFC;
+        margin-top: 7px;
+    }}
+
+    .panel-note {{
+        color: {MUTED};
+        font-size: 12px;
+        margin-top: 5px;
+    }}
+
+    .status-dot {{
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: {GREEN};
+        margin-right: 8px;
+    }}
+
+    .small-muted {{
+        color: {MUTED};
+        font-size: 12px;
+    }}
+
+    div[data-testid="stMetric"] {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        padding: 15px;
+        border-radius: 12px;
+    }}
+
+    div[data-testid="stMetricLabel"] {{
+        color: {MUTED};
+    }}
+
+    div[data-testid="stMetricValue"] {{
+        color: #F8FAFC;
+    }}
+
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid {BORDER};
+        border-radius: 10px;
+        overflow: hidden;
+    }}
+
+    .stButton > button {{
+        border-radius: 9px;
+        font-weight: 700;
+        border: 1px solid {BORDER};
+    }}
+
+    hr {{
+        border-color: {BORDER};
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
+# 2. COMMON UTILITIES
+# ============================================================
+
+def panel(label, value, note=""):
+    """Display a dashboard metric card."""
+    st.markdown(
+        f"""
+        <div class="panel">
+            <div class="panel-label">{label}</div>
+            <div class="panel-value">{value}</div>
+            <div class="panel-note">{note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def style_plot(fig, height=350):
+    """Apply the common dark dashboard style to Plotly figures."""
+    fig.update_layout(
+        height=height,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=TEXT, family="Arial"),
+        margin=dict(l=20, r=20, t=55, b=25),
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(color=TEXT),
+        ),
+        title_font=dict(size=16, color=TEXT),
+    )
+
+    fig.update_xaxes(
+        gridcolor=BORDER,
+        zerolinecolor=BORDER,
+    )
+    fig.update_yaxes(
+        gridcolor=BORDER,
+        zerolinecolor=BORDER,
+    )
+    return fig
+
+
+def get_document_text(doc):
+    return f"{doc['title']} {doc['text']}"
+
+
+# ============================================================
+# 3. DOCUMENT RETRIEVAL
+# ============================================================
+
 @st.cache_resource
-def build_retriever():
-    texts = [d["title"] + " " + d["text"] for d in DOCUMENTS]
+def build_retrieval_index():
+    """Build a TF-IDF index from the synthetic document corpus."""
+    corpus = [get_document_text(doc) for doc in DOCUMENTS]
+
     vectorizer = TfidfVectorizer(
-        lowercase=True,
         stop_words="english",
         ngram_range=(1, 2),
         sublinear_tf=True,
     )
-    return vectorizer, vectorizer.fit_transform(texts)
+
+    matrix = vectorizer.fit_transform(corpus)
+    return vectorizer, matrix
 
 
-def retrieve(q, k=3):
-    vectorizer, matrix = build_retriever()
-    scores = cosine_similarity(
-        vectorizer.transform([q]), matrix
-    ).flatten()
+def retrieve(query, k=3):
+    """Return the top-k documents using TF-IDF cosine similarity."""
+    vectorizer, matrix = build_retrieval_index()
+
+    query_vector = vectorizer.transform([query])
+    scores = cosine_similarity(query_vector, matrix).flatten()
+
+    order = np.argsort(scores)[::-1][:k]
 
     results = []
-    for i in np.argsort(scores)[::-1]:
-        if scores[i] <= 0:
-            continue
-        doc = DOCUMENTS[i].copy()
-        doc["score"] = float(scores[i])
+    for idx in order:
+        doc = DOCUMENTS[int(idx)].copy()
+        doc["score"] = float(scores[idx])
         results.append(doc)
-        if len(results) >= k:
-            break
+
     return results
 
 
-# ---------- Naive Bayes query classifier ----------
+# ============================================================
+# 4. NAIVE BAYES CLASSIFIER
+# ============================================================
+
+NB_TRAINING_DATA = [
+    (
+        "equipment temperature high cooling ventilation airflow",
+        "preventive_maintenance",
+    ),
+    (
+        "inspect equipment ventilation connectors operating logs",
+        "preventive_maintenance",
+    ),
+    (
+        "preventive inspection maintenance schedule abnormal indications",
+        "preventive_maintenance",
+    ),
+    (
+        "monitor temperature operating limits cooling system",
+        "preventive_maintenance",
+    ),
+    (
+        "communication intermittent signal degradation interference",
+        "troubleshooting",
+    ),
+    (
+        "packet loss link quality congestion communication",
+        "troubleshooting",
+    ),
+    (
+        "communication dropping connector problems signal quality",
+        "troubleshooting",
+    ),
+    (
+        "investigate link degradation and record packet loss",
+        "troubleshooting",
+    ),
+    (
+        "unexpected restarts watchdog events software faults",
+        "fault_isolation",
+    ),
+    (
+        "unstable power causes resets intermittent operation",
+        "fault_isolation",
+    ),
+    (
+        "review restart event logs and power observations",
+        "fault_isolation",
+    ),
+    (
+        "fault isolation diagnose reset power stability",
+        "fault_isolation",
+    ),
+]
+
+
 @st.cache_resource
-def build_nb():
+def build_nb_model():
+    texts = [item[0] for item in NB_TRAINING_DATA]
+    labels = [item[1] for item in NB_TRAINING_DATA]
+
     model = Pipeline([
-        ("tfidf", TfidfVectorizer(
-            lowercase=True,
-            stop_words="english",
-            ngram_range=(1, 2),
-        )),
-        ("nb", MultinomialNB()),
+        (
+            "tfidf",
+            TfidfVectorizer(
+                stop_words="english",
+                ngram_range=(1, 2),
+            ),
+        ),
+        ("classifier", MultinomialNB(alpha=0.5)),
     ])
-    model.fit(
-        [x for x, y in TRAINING_DATA],
-        [y for x, y in TRAINING_DATA],
-    )
+
+    model.fit(texts, labels)
     return model
 
 
-def classify(q):
-    model = build_nb()
-    prediction = model.predict([q])[0]
-    probabilities = model.predict_proba([q])[0]
-    return prediction, dict(zip(model.classes_, probabilities))
+def predict_category(query):
+    model = build_nb_model()
+    predicted = model.predict([query])[0]
+
+    probabilities = model.predict_proba([query])[0]
+    classes = model.named_steps["classifier"].classes_
+
+    probability_map = {
+        str(category): float(probability)
+        for category, probability in zip(classes, probabilities)
+    }
+
+    return predicted, probability_map
 
 
-def rerank(q, category, k=5):
-    results = retrieve(q, len(DOCUMENTS))
+def category_rank(query, predicted_category, k=3, bonus=0.15):
+    """
+    Category-aware retrieval.
+
+    The category prediction is supplied by the Naive Bayes classifier.
+    A bonus is added to documents in that category.
+    """
+    results = retrieve(query, k=len(DOCUMENTS))
+
     for doc in results:
-        doc["category_bonus"] = (
-            0.15 if doc["category"] == category else 0.0
-        )
         doc["adjusted_score"] = (
-            doc["score"] + doc["category_bonus"]
-        )
-    return sorted(
-        results,
-        key=lambda d: d["adjusted_score"],
-        reverse=True,
-    )[:k]
-
-
-def show_results(results, adjusted=False):
-    if not results:
-        st.warning("No matching terms found. Try different wording.")
-        return
-
-    for i, doc in enumerate(results, 1):
-        with st.container(border=True):
-            st.markdown(f"**{i}. {doc['title']}**")
-            line = (
-                f"Source: `{doc['id']}` · "
-                f"Category: `{doc['category']}` · "
-                f"Similarity: `{doc['score']:.3f}`"
+            doc["score"]
+            + (
+                bonus
+                if doc["category"] == predicted_category
+                else 0.0
             )
-            if adjusted:
-                line += (
-                    f" · Bonus: `{doc['category_bonus']:.2f}`"
-                    f" · Adjusted: `{doc['adjusted_score']:.3f}`"
-                )
-            st.caption(line)
-            st.write(doc["text"])
+        )
+
+    results.sort(
+        key=lambda doc: doc["adjusted_score"],
+        reverse=True,
+    )
+
+    return results[:k]
 
 
-# ---------- HMM and Viterbi algorithm ----------
-STATES = ["Normal", "Degraded", "Fault"]
-OBS = [
+# ============================================================
+# 5. HIDDEN MARKOV MODEL AND VITERBI
+# ============================================================
+
+HMM_STATES = ["Normal", "Degraded", "Fault"]
+
+HMM_OBSERVATIONS = [
     "Normal temperature",
     "Elevated temperature",
     "High packet loss",
     "Repeated restart",
 ]
 
-START = np.array([0.80, 0.15, 0.05])
-TRANS = np.array([
-    [0.80, 0.18, 0.02],
+HMM_TRANSITION = np.array([
+    [0.80, 0.17, 0.03],
     [0.15, 0.65, 0.20],
-    [0.05, 0.20, 0.75],
-])
-EMIT = np.array([
-    [0.70, 0.10, 0.15, 0.05],
-    [0.15, 0.45, 0.30, 0.10],
-    [0.05, 0.15, 0.25, 0.55],
+    [0.05, 0.15, 0.80],
 ])
 
+HMM_EMISSION = np.array([
+    [0.75, 0.10, 0.12, 0.03],
+    [0.15, 0.45, 0.32, 0.08],
+    [0.05, 0.10, 0.15, 0.70],
+])
 
-def viterbi(obs):
-    if not obs:
-        return [], 0.0
+HMM_INITIAL = np.array([0.80, 0.15, 0.05])
 
-    indices = [OBS.index(x) for x in obs]
-    dp = np.full((len(indices), 3), -np.inf)
-    back = np.zeros((len(indices), 3), dtype=int)
-    dp[0] = np.log(START) + np.log(EMIT[:, indices[0]])
 
-    for t in range(1, len(indices)):
-        for current in range(3):
-            candidates = dp[t - 1] + np.log(TRANS[:, current])
-            previous = int(np.argmax(candidates))
-            dp[t, current] = (
-                candidates[previous]
-                + np.log(EMIT[current, indices[t]])
+def viterbi(observation_sequence):
+    """Infer the most likely hidden-state sequence."""
+    obs_indices = [
+        HMM_OBSERVATIONS.index(obs)
+        for obs in observation_sequence
+    ]
+
+    n_states = len(HMM_STATES)
+    n_steps = len(obs_indices)
+
+    log_transition = np.log(HMM_TRANSITION + 1e-12)
+    log_emission = np.log(HMM_EMISSION + 1e-12)
+    log_initial = np.log(HMM_INITIAL + 1e-12)
+
+    dp = np.zeros((n_steps, n_states))
+    backpointer = np.zeros(
+        (n_steps, n_states),
+        dtype=int,
+    )
+
+    first_obs = obs_indices[0]
+    dp[0] = (
+        log_initial
+        + log_emission[:, first_obs]
+    )
+
+    for t in range(1, n_steps):
+        obs = obs_indices[t]
+
+        for state in range(n_states):
+            candidates = (
+                dp[t - 1]
+                + log_transition[:, state]
             )
-            back[t, current] = previous
 
-    last = int(np.argmax(dp[-1]))
-    log_probability = float(dp[-1, last])
-    path = [last]
+            best_previous = int(np.argmax(candidates))
 
-    for t in range(len(indices) - 1, 0, -1):
-        path.append(int(back[t, path[-1]]))
+            dp[t, state] = (
+                candidates[best_previous]
+                + log_emission[state, obs]
+            )
 
-    path.reverse()
-    return [STATES[i] for i in path], log_probability
+            backpointer[t, state] = best_previous
 
+    last_state = int(np.argmax(dp[-1]))
+    best_path = [last_state]
 
-def style_plot(fig, height=280):
-    fig.update_layout(
-        height=height,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(5,16,29,.45)",
-        font=dict(color="#E8F2FF", family="Inter,Arial", size=12),
-        margin=dict(l=12, r=12, t=32, b=16),
-        legend=dict(
-            orientation="h", yanchor="bottom", y=1.02,
-            xanchor="left", x=0, font=dict(size=10),
-        ),
-    )
-    fig.update_xaxes(
-        gridcolor="rgba(132,164,198,.16)", linecolor="#536A83"
-    )
-    fig.update_yaxes(
-        gridcolor="rgba(132,164,198,.16)", linecolor="#536A83"
-    )
-    return fig
+    for t in range(n_steps - 1, 0, -1):
+        last_state = backpointer[t, last_state]
+        best_path.append(int(last_state))
 
+    best_path.reverse()
 
-# ---------- Branded header and sidebar ----------
-st.markdown("""
-<div class="brand">
-  <div class="brand-left">
-    <div class="brand-icon">🛠️</div>
-    <div>
-      <div class="brand-title">Technical AI Model Laboratory</div>
-      <div class="brand-sub">VAE | Naive Bayes | HMM | Agentic RAG</div>
-    </div>
-  </div>
-  <div>
-    <div class="online">☁ &nbsp; Online Demo (Streamlit Cloud)</div>
-    <div class="micro">Synthetic data only | For educational use</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    state_sequence = [
+        HMM_STATES[state]
+        for state in best_path
+    ]
 
-with st.sidebar:
-    st.markdown("### ⓘ About This Demo")
-    st.write(
-        "An interactive demonstration of VAE, Naive Bayes and HMM "
-        "within an Agentic RAG concept for technical maintenance data."
-    )
-    st.divider()
-    page = st.radio(
-        "Navigate laboratory",
-        [
-            "VAE Laboratory",
-            "Naive Bayes Laboratory",
-            "HMM Laboratory",
-            "Agentic RAG",
-        ],
-        label_visibility="collapsed",
-    )
-    st.divider()
-    st.caption(f"Corpus: {len(DOCUMENTS)} synthetic documents")
-    st.caption("No external LLM/API is connected.")
+    final_probs = np.exp(dp[-1] - np.max(dp[-1]))
+    final_probs = final_probs / final_probs.sum()
+
+    state_probabilities = {
+        HMM_STATES[i]: float(final_probs[i])
+        for i in range(n_states)
+    }
+
+    return state_sequence, state_probabilities
+
 
 # ============================================================
-# VAE MODEL: TRAIN ON SYNTHETIC NORMAL TELEMETRY
+# 6. VARIATIONAL AUTOENCODER
 # ============================================================
 
-FEATURES = ["Temperature", "Vibration", "Voltage", "Packet Loss"]
+FEATURES = [
+    "Temperature",
+    "Vibration",
+    "Voltage",
+    "Packet Loss",
+]
 
 
 class TelemetryVAE(nn.Module):
     def __init__(self, input_dim=4, latent_dim=2):
         super().__init__()
+
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 12),
             nn.ReLU(),
         )
+
         self.mu = nn.Linear(12, latent_dim)
         self.logvar = nn.Linear(12, latent_dim)
+
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, 12),
             nn.ReLU(),
@@ -315,697 +520,3353 @@ class TelemetryVAE(nn.Module):
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
-        return mu + torch.randn_like(std) * std
+        epsilon = torch.randn_like(std)
+        return mu + epsilon * std
+
+    def decode(self, z):
+        return self.decoder(z)
 
     def forward(self, x):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
-        return self.decoder(z), mu, logvar
+        reconstruction = self.decode(z)
+
+        return reconstruction, mu, logvar
 
 
 @st.cache_resource
 def train_vae():
-    # Synthetic normal telemetry only.
-    rng = np.random.default_rng(42)
-    n = 900
-
-    temperature = rng.normal(55, 5, n)
-    vibration = rng.normal(1.0, 0.22, n)
-    voltage = rng.normal(28.0, 0.8, n)
-    packet_loss = np.clip(rng.normal(0.6, 0.25, n), 0, None)
+    """Train a small VAE using synthetic normal telemetry."""
+    np.random.seed(42)
+    torch.manual_seed(42)
 
     normal_data = np.column_stack([
-        temperature, vibration, voltage, packet_loss
+        np.random.normal(55, 5, 900),
+        np.random.normal(1.0, 0.22, 900),
+        np.random.normal(28, 0.8, 900),
+        np.clip(
+            np.random.normal(0.6, 0.25, 900),
+            0,
+            None,
+        ),
     ])
 
     scaler = StandardScaler()
-    x_scaled = scaler.fit_transform(normal_data).astype(np.float32)
+    scaled_data = scaler.fit_transform(normal_data)
 
-    torch.manual_seed(42)
-    model = TelemetryVAE(input_dim=4, latent_dim=2)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.008)
-    x_tensor = torch.tensor(x_scaled)
+    tensor_data = torch.tensor(
+        scaled_data,
+        dtype=torch.float32,
+    )
+
+    dataset = TensorDataset(tensor_data)
+    loader = DataLoader(
+        dataset,
+        batch_size=64,
+        shuffle=True,
+    )
+
+    model = TelemetryVAE(
+        input_dim=4,
+        latent_dim=2,
+    )
+
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=0.003,
+    )
+
+    epochs = 120
 
     model.train()
-    for _ in range(120):
-        optimizer.zero_grad()
 
-        reconstruction, mu, logvar = model(x_tensor)
+    for _ in range(epochs):
+        for (batch,) in loader:
+            optimizer.zero_grad()
 
-        reconstruction_loss = nn.functional.mse_loss(
-            reconstruction, x_tensor
-        )
+            reconstruction, mu, logvar = model(batch)
 
-        kl_loss = -0.5 * torch.mean(
-            1 + logvar - mu.pow(2) - logvar.exp()
-        )
+            reconstruction_loss = nn.functional.mse_loss(
+                reconstruction,
+                batch,
+                reduction="mean",
+            )
 
-        loss = reconstruction_loss + 0.015 * kl_loss
-        loss.backward()
-        optimizer.step()
+            kl_loss = -0.5 * torch.mean(
+                1
+                + logvar
+                - mu.pow(2)
+                - logvar.exp()
+            )
+
+            loss = reconstruction_loss + 0.01 * kl_loss
+
+            loss.backward()
+            optimizer.step()
 
     model.eval()
+
     with torch.no_grad():
-        reconstruction, mu, logvar = model(x_tensor)
-        errors = torch.mean(
-            (reconstruction - x_tensor) ** 2, dim=1
+        reconstruction, _, _ = model(tensor_data)
+
+        train_errors = torch.mean(
+            (tensor_data - reconstruction) ** 2,
+            dim=1,
         ).numpy()
-        latent = mu.numpy()
 
-    threshold = float(np.quantile(errors, 0.95))
+    threshold = float(np.percentile(train_errors, 95))
 
-    return model, scaler, threshold, normal_data, latent, errors
+    return model, scaler, normal_data, threshold, train_errors
 
 
-def vae_predict(values):
-    model, scaler, threshold, _, _, _ = train_vae()
+def analyze_telemetry(values):
+    model, scaler, _, threshold, _ = train_vae()
 
     scaled = scaler.transform(
         np.array(values, dtype=float).reshape(1, -1)
-    ).astype(np.float32)
+    )
 
-    tensor = torch.tensor(scaled)
+    tensor = torch.tensor(
+        scaled,
+        dtype=torch.float32,
+    )
 
-    model.eval()
     with torch.no_grad():
         reconstruction, mu, logvar = model(tensor)
 
-        error = float(torch.mean(
-            (reconstruction - tensor) ** 2, dim=1
-        ).item())
+    reconstructed_scaled = reconstruction.numpy()
+    reconstructed_original = scaler.inverse_transform(
+        reconstructed_scaled
+    )[0]
 
-        reconstructed_original = scaler.inverse_transform(
-            reconstruction.numpy()
-        )[0]
+    error = float(
+        np.mean(
+            (scaled - reconstructed_scaled) ** 2
+        )
+    )
 
-        latent_point = mu.numpy()[0]
+    latent = mu.numpy()[0]
 
-    return error, threshold, reconstructed_original, latent_point
+    return {
+        "error": error,
+        "threshold": threshold,
+        "anomaly": error > threshold,
+        "reconstruction": reconstructed_original,
+        "latent": latent,
+    }
 
 
 # ============================================================
-# VAE LABORATORY
+# 7. GROUND-TRUTH RAG EVALUATION
+# ============================================================
+
+EVALUATION_SET = [
+    {
+        "question": "Why is the equipment temperature increasing?",
+        "relevant": ["MAN-001"],
+    },
+    {
+        "question": "Communication keeps dropping intermittently.",
+        "relevant": ["MAN-002"],
+    },
+    {
+        "question": "The equipment is restarting unexpectedly.",
+        "relevant": ["MAN-003", "MAN-006"],
+    },
+    {
+        "question": "How should increasing packet loss be investigated?",
+        "relevant": ["MAN-004"],
+    },
+    {
+        "question": "What should a preventive inspection include?",
+        "relevant": ["MAN-005"],
+    },
+    {
+        "question": "What could cause resets due to unstable power?",
+        "relevant": ["MAN-006", "MAN-003"],
+    },
+]
+
+
+def evaluate_retrieval(ranked_docs, relevant_ids, k=3):
+    """Return Recall@k and reciprocal rank."""
+    relevant = set(relevant_ids)
+
+    ranked_ids = [
+        doc["id"]
+        for doc in ranked_docs
+    ]
+
+    top_k = ranked_ids[:k]
+
+    recall = (
+        len(set(top_k) & relevant) / len(relevant)
+        if relevant
+        else 0.0
+    )
+
+    reciprocal_rank = 0.0
+
+    for rank, doc_id in enumerate(ranked_ids, start=1):
+        if doc_id in relevant:
+            reciprocal_rank = 1.0 / rank
+            break
+
+    return recall, reciprocal_rank
+
+
+def run_evaluation():
+    metric_rows = []
+    detail_rows = []
+
+    for item in EVALUATION_SET:
+        query = item["question"]
+        relevant_ids = item["relevant"]
+
+        baseline = retrieve(query, k=3)
+
+        predicted_category, _ = predict_category(query)
+
+        category_results = category_rank(
+            query,
+            predicted_category,
+            k=3,
+        )
+
+        baseline_recall, baseline_rr = evaluate_retrieval(
+            baseline,
+            relevant_ids,
+        )
+
+        category_recall, category_rr = evaluate_retrieval(
+            category_results,
+            relevant_ids,
+        )
+
+        baseline_ids = [
+            doc["id"] for doc in baseline
+        ]
+
+        category_ids = [
+            doc["id"] for doc in category_results
+        ]
+
+        metric_rows.append({
+            "Question": query,
+            "Baseline Recall@3": baseline_recall,
+            "Category Recall@3": category_recall,
+            "Baseline RR": baseline_rr,
+            "Category RR": category_rr,
+        })
+
+        detail_rows.append({
+            "Question": query,
+            "Relevant IDs": ", ".join(relevant_ids),
+            "NB predicted category": predicted_category,
+            "Baseline ranking": " → ".join(baseline_ids),
+            "Category-aware ranking": " → ".join(category_ids),
+            "Ranking changed": baseline_ids != category_ids,
+            "Baseline hit": bool(
+                set(baseline_ids) & set(relevant_ids)
+            ),
+            "Category-aware hit": bool(
+                set(category_ids) & set(relevant_ids)
+            ),
+        })
+
+    metrics_df = pd.DataFrame(metric_rows)
+    details_df = pd.DataFrame(detail_rows)
+
+    summary = {
+        "baseline_recall": float(
+            metrics_df["Baseline Recall@3"].mean()
+        ),
+        "category_recall": float(
+            metrics_df["Category Recall@3"].mean()
+        ),
+        "baseline_mrr": float(
+            metrics_df["Baseline RR"].mean()
+        ),
+        "category_mrr": float(
+            metrics_df["Category RR"].mean()
+        ),
+    }
+
+    return metrics_df, details_df, summary
+
+
+# ============================================================
+# 8. SIDEBAR NAVIGATION
+# ============================================================
+
+with st.sidebar:
+    st.markdown(
+        f"""
+        <div style="padding: 10px 4px 22px 4px;">
+            <div style="font-size: 28px; font-weight: 900;
+                        color: {CYAN};">
+                MM AI
+            </div>
+            <div style="font-size: 12px; color: {MUTED};
+                        letter-spacing: 1px;">
+                MODEL LABORATORY
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("### NAVIGATION")
+
+    page = st.radio(
+        "Select laboratory",
+        [
+            "VAE Laboratory",
+            "Naive Bayes Laboratory",
+            "HMM Laboratory",
+            "Agentic RAG",
+            "RAG Evaluation Lab",
+        ],
+        label_visibility="collapsed",
+    )
+
+    st.divider()
+
+    st.markdown("### SYSTEM STATUS")
+
+    st.markdown(
+        f"""
+        <div style="color: {GREEN}; font-size: 13px;">
+            <span class="status-dot"></span>Application loaded
+        </div>
+        <div style="color: {MUTED}; font-size: 12px;
+                    margin-top: 8px;">
+            Synthetic demonstration data<br>
+            Local model inference
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    st.caption("Technical AI Model Laboratory")
+    st.caption("Educational prototype • Synthetic data only")
+
+
+# ============================================================
+# 9. COMMON PAGE HEADER
+# ============================================================
+
+st.markdown(
+    """
+    <div class="hero">
+        <div class="eyebrow">INTELLIGENT SYSTEMS • EXPERIMENTAL LAB</div>
+        <div class="hero-title">Technical AI Model Laboratory</div>
+        <div class="hero-subtitle">
+            Explore anomaly detection, probabilistic classification,
+            hidden-state inference, and retrieval-augmented generation
+            through interactive experiments.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
+# 10. VAE LABORATORY
 # ============================================================
 
 if page == "VAE Laboratory":
-    st.markdown(
-        '<div class="section-title">'
-        'Variational Autoencoder (VAE) – Anomaly Detection</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="section-sub">A VAE trained on synthetic normal '
-        'telemetry. Adjust readings to inspect reconstruction error '
-        'and how an anomaly signal could guide RAG retrieval.</div>',
-        unsafe_allow_html=True,
+
+    st.markdown("## VAE Laboratory")
+    st.caption(
+        "Variational Autoencoder • Telemetry reconstruction • "
+        "Anomaly detection"
     )
 
-    model, scaler, threshold, normal_data, latent, training_errors = train_vae()
+    model, scaler, normal_data, threshold, train_errors = train_vae()
 
-    a, b, c = st.columns([1.0, 1.28, 0.9], gap="medium")
+    st.markdown("### Live telemetry input")
 
-    with a:
-        st.markdown(
-            '<div class="panel"><div class="ptitle">'
-            '☷ &nbsp; 1. Adjust Input Telemetry</div>',
-            unsafe_allow_html=True,
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        temperature = st.slider(
+            "Temperature",
+            min_value=20.0,
+            max_value=120.0,
+            value=55.0,
+            step=1.0,
+            help="Synthetic equipment temperature.",
         )
 
-        temp = st.slider(
-            "Temperature (°C)", 35, 85, 68, key="temp"
-        )
-        vib = st.slider(
-            "Vibration (mm/s)", 0.2, 2.5, 2.1, 0.1, key="vib"
-        )
-        volt = st.slider(
-            "Voltage (V)", 24.0, 32.0, 27.5, 0.1, key="volt"
-        )
-        packet = st.slider(
-            "Packet Loss (%)", 0.0, 5.0, 1.2, 0.1, key="packet"
+    with c2:
+        vibration = st.slider(
+            "Vibration",
+            min_value=0.0,
+            max_value=5.0,
+            value=1.0,
+            step=0.1,
         )
 
-        if st.button(
-            "↻ Reset to Normal Values", use_container_width=True
-        ):
-            st.session_state.temp = 55
-            st.session_state.vib = 1.0
-            st.session_state.volt = 28.0
-            st.session_state.packet = 0.5
-            st.rerun()
-
-        st.caption(
-            "All data are synthetic; normal training patterns are "
-            "generated in code."
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    current = np.array([temp, vib, volt, packet], dtype=float)
-    score, threshold, reconstructed, latent_point = vae_predict(current)
-    is_anomaly = score >= threshold
-
-    with b:
-        st.markdown(
-            '<div class="panel"><div class="ptitle">'
-            '📈 &nbsp; 2. Input vs. VAE Reconstruction</div>',
-            unsafe_allow_html=True,
+    with c3:
+        voltage = st.slider(
+            "Voltage",
+            min_value=15.0,
+            max_value=40.0,
+            value=28.0,
+            step=0.5,
         )
 
-        fig = go.Figure()
-        fig.add_bar(
-            x=FEATURES, y=current,
-            name="Actual Input", marker_color=BLUE,
-        )
-        fig.add_bar(
-            x=FEATURES, y=reconstructed,
-            name="VAE Reconstructed", marker_color=ORANGE,
-        )
-        fig.update_layout(barmode="group")
-
-        st.plotly_chart(
-            style_plot(fig, 280),
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
-        st.caption(
-            "Reconstruction is produced by the trained neural network."
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with c:
-        st.markdown(
-            '<div class="panel"><div class="ptitle">'
-            '◉ &nbsp; 3. Anomaly Score</div>',
-            unsafe_allow_html=True,
+    with c4:
+        packet_loss = st.slider(
+            "Packet loss",
+            min_value=0.0,
+            max_value=10.0,
+            value=0.6,
+            step=0.1,
         )
 
-        gauge_value = min(score / max(threshold, 1e-8), 2.0)
+    telemetry = [
+        temperature,
+        vibration,
+        voltage,
+        packet_loss,
+    ]
 
-        gauge = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=gauge_value,
-            number={
-                "font": {"size": 32, "color": TEXT},
-                "valueformat": ".2f",
-                "suffix": "×",
-            },
-            title={
-                "text": "Error / threshold",
-                "font": {"size": 13, "color": MUTED},
-            },
-            gauge={
-                "axis": {"range": [0, 2], "tickcolor": MUTED},
-                "bar": {
-                    "color": RED if is_anomaly else GREEN,
-                    "thickness": 0.22,
-                },
-                "bgcolor": PANEL,
-                "borderwidth": 0,
-                "steps": [
-                    {"range": [0, 1], "color": "#087A62"},
-                    {"range": [1, 1.5], "color": "#A36A1B"},
-                    {"range": [1.5, 2], "color": "#7E2638"},
-                ],
-                "threshold": {
-                    "line": {"color": YELLOW, "width": 3},
-                    "thickness": 0.85,
-                    "value": 1.0,
-                },
-            },
-        ))
+    analysis = analyze_telemetry(telemetry)
 
-        gauge.update_layout(
-            height=238,
-            margin=dict(l=8, r=8, t=35, b=5),
-            paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color=TEXT),
+    metric1, metric2, metric3 = st.columns(3)
+
+    with metric1:
+        panel(
+            "Reconstruction error",
+            f"{analysis['error']:.4f}",
+            "Mean squared error in standardized feature space",
         )
 
-        st.plotly_chart(
-            gauge,
-            use_container_width=True,
-            config={"displayModeBar": False},
+    with metric2:
+        panel(
+            "Training threshold",
+            f"{analysis['threshold']:.4f}",
+            "95th percentile of synthetic training errors",
         )
 
-        st.caption(
-            f"Reconstruction MSE: {score:.4f} · "
-            f"95th-percentile training threshold: {threshold:.4f}"
+    with metric3:
+        status = (
+            "ANOMALY DETECTED"
+            if analysis["anomaly"]
+            else "NORMAL RANGE"
         )
 
-        if is_anomaly:
-            st.markdown(
-                '<div style="background:#3D1B27;border:1px solid #A83A54;'
-                'border-radius:10px;padding:12px">'
-                '<b style="color:#FFDDE4">● &nbsp; Anomaly signal</b><br>'
-                'Reconstruction error is above the synthetic training '
-                'threshold.</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<div style="background:#063D36;border:1px solid #079A78;'
-                'border-radius:10px;padding:12px">'
-                '<b style="color:#D5FFF2">● &nbsp; Normal-like input</b><br>'
-                'Reconstruction error is within the synthetic training '
-                'threshold.</div>',
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    d, e = st.columns([1, 1.1], gap="medium")
-
-    with d:
-        st.markdown(
-            '<div class="panel"><div class="ptitle">'
-            '♧ &nbsp; 4. Learned Latent Space</div>',
-            unsafe_allow_html=True,
+        panel(
+            "Model assessment",
+            status,
+            "Illustrative model output; not a safety diagnosis",
         )
 
-        fig = go.Figure()
-        fig.add_scatter(
-            x=latent[:, 0], y=latent[:, 1],
-            mode="markers",
-            name="Synthetic normal training data",
-            marker=dict(size=5, color=BLUE, opacity=0.55),
+    if analysis["anomaly"]:
+        st.warning(
+            "The input exceeds the model's illustrative "
+            "reconstruction-error threshold."
         )
-        fig.add_scatter(
-            x=[latent_point[0]], y=[latent_point[1]],
-            mode="markers", name="Current input",
-            marker=dict(
-                size=15, color=YELLOW, symbol="star",
-                line=dict(width=1, color="#FFFFFF"),
-            ),
+    else:
+        st.success(
+            "The input is within the model's learned "
+            "reconstruction-error threshold."
         )
-        fig.update_layout(
-            xaxis_title="Latent mean z₁",
-            yaxis_title="Latent mean z₂",
+
+    st.markdown("### Input versus reconstruction")
+
+    reconstruction_df = pd.DataFrame({
+        "Feature": FEATURES,
+        "Input": telemetry,
+        "Reconstruction": analysis["reconstruction"],
+    })
+
+    reconstruction_long = reconstruction_df.melt(
+        id_vars="Feature",
+        var_name="Measurement",
+        value_name="Value",
+    )
+
+    fig = px.bar(
+        reconstruction_long,
+        x="Feature",
+        y="Value",
+        color="Measurement",
+        barmode="group",
+        title="Input telemetry vs VAE reconstruction",
+        color_discrete_sequence=[CYAN, PURPLE],
+    )
+
+    st.plotly_chart(
+        style_plot(fig, 360),
+        use_container_width=True,
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown("### Latent representation")
+
+        latent_df = pd.DataFrame({
+            "Latent dimension": ["z1", "z2"],
+            "Value": analysis["latent"],
+        })
+
+        fig = px.bar(
+            latent_df,
+            x="Latent dimension",
+            y="Value",
+            title="Encoder latent mean",
+            color="Latent dimension",
+            color_discrete_sequence=[CYAN, PURPLE],
         )
 
         st.plotly_chart(
-            style_plot(fig, 275),
+            style_plot(fig, 300),
             use_container_width=True,
-            config={"displayModeBar": False},
-        )
-        st.caption(
-            "Latent coordinates are encoder means from the trained VAE."
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with e:
-        st.markdown(
-            '<div class="panel"><div class="ptitle">'
-            '⌁ &nbsp; Reconstruction Error Distribution</div>',
-            unsafe_allow_html=True,
         )
 
-        hist = go.Figure()
-        hist.add_histogram(
-            x=training_errors,
-            name="Normal training error",
-            marker_color=BLUE,
-            opacity=0.8,
+    with right:
+        st.markdown("### Training reconstruction errors")
+
+        fig = px.histogram(
+            x=train_errors,
+            nbins=35,
+            title="Synthetic normal training distribution",
+            labels={"x": "Reconstruction error"},
+            color_discrete_sequence=[BLUE],
         )
-        hist.add_vline(
-            x=threshold, line_dash="dash",
-            line_color=YELLOW,
-            annotation_text="95th percentile",
+
+        fig.add_vline(
+            x=threshold,
+            line_dash="dash",
+            line_color=ORANGE,
+            annotation_text="Threshold",
         )
-        hist.add_vline(
-            x=score, line_color=RED,
+
+        fig.add_vline(
+            x=analysis["error"],
+            line_dash="solid",
+            line_color=RED,
             annotation_text="Current input",
         )
-        hist.update_layout(
-            xaxis_title="Reconstruction MSE",
-            yaxis_title="Count",
-            bargap=0.05,
-        )
 
         st.plotly_chart(
-            style_plot(hist, 275),
+            style_plot(fig, 300),
             use_container_width=True,
-            config={"displayModeBar": False},
         )
-        st.caption(
-            "Threshold is derived from synthetic training errors, "
-            "not real-world validation."
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("""
-    <div class="takeaway">
-      <div class="take-title">✦ &nbsp; Key Takeaways</div>
-      <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:22px">
-        <div>
-          • The VAE learns a latent representation of synthetic normal telemetry.<br>
-          • Reconstruction MSE measures how poorly a sample is reconstructed.<br>
-          • The threshold is set at the 95th percentile of training errors.
-        </div>
-        <div style="border-left:1px solid #62558B;padding-left:20px">
-          <div class="take-title">⚙ &nbsp; Use Cases in Technical RAG</div>
-          • Flag unusual telemetry before retrieval.<br>
-          • Use the signal to prioritize relevant maintenance documents.<br>
-          • Validate thresholds on representative data before practical use.
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("### Telemetry summary")
 
-    if st.button(
-        "Use VAE signal to retrieve maintenance evidence",
-        type="primary",
+    st.dataframe(
+        reconstruction_df.round(4),
         use_container_width=True,
-    ):
-        query = (
-            "equipment temperature vibration voltage packet loss "
-            "anomaly troubleshooting fault"
-        )
-        category = (
-            "fault_isolation" if is_anomaly
-            else "preventive_maintenance"
-        )
-        results = rerank(query, category, 3)
-        st.subheader("Retrieved evidence based on anomaly signal")
-        show_results(results, True)
-        st.caption(
-            "This is a demonstration trigger, not a validated diagnosis."
-        )
+        hide_index=True,
+    )
+
+    st.info(
+        "Teaching point: a VAE learns a compressed latent representation "
+        "and reconstructs inputs. A high reconstruction error can flag "
+        "unusual inputs, but this synthetic demonstration is not a "
+        "validated anomaly detector."
+    )
+
 
 # ============================================================
-# NAIVE BAYES LABORATORY
+# 11. NAIVE BAYES LABORATORY
 # ============================================================
 
 elif page == "Naive Bayes Laboratory":
-    st.markdown(
-        '<div class="section-title">'
-        'Naive Bayes – Query Intent and Retrieval Routing</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="section-sub">Classify a question and inspect how '
-        'its predicted category adds context to retrieval.</div>',
-        unsafe_allow_html=True,
+
+    st.markdown("## Naive Bayes Laboratory")
+    st.caption(
+        "Text classification • Probabilities • Category prediction"
     )
 
-    q = st.text_input(
-        "Technical maintenance question",
-        "Why does the equipment repeatedly restart?",
-        key="nb_question",
+    model = build_nb_model()
+
+    query = st.text_area(
+        "Enter a technical symptom or maintenance query",
+        value="The equipment is restarting unexpectedly due to unstable power.",
+        height=100,
     )
 
-    if st.button(
-        "CLASSIFY QUERY AND RETRIEVE",
-        type="primary",
-        use_container_width=True,
-    ):
-        pred, probs = classify(q)
+    if st.button("Classify query", type="primary"):
+        predicted, probabilities = predict_category(query)
 
-        x, y = st.columns([0.9, 1.2], gap="medium")
+        st.markdown("### Prediction")
 
-        with x:
-            st.markdown(
-                '<div class="panel"><div class="ptitle">'
-                '🧭 Predicted query category</div>',
-                unsafe_allow_html=True,
+        c1, c2 = st.columns(2)
+
+        with c1:
+            panel(
+                "Predicted category",
+                predicted.replace("_", " ").title(),
+                "Multinomial Naive Bayes",
             )
-            st.markdown(f"## {pred.replace('_', ' ').title()}")
 
-            df = pd.DataFrame({
-                "Category": list(probs.keys()),
-                "Probability": list(probs.values()),
-            }).sort_values("Probability")
+        with c2:
+            confidence = probabilities[predicted]
 
-            fig = px.bar(
-                df,
-                x="Probability",
-                y="Category",
-                orientation="h",
-                range_x=[0, 1],
-                color_discrete_sequence=[CYAN],
+            panel(
+                "Model probability",
+                f"{confidence:.1%}",
+                "Probability within this model's class distribution",
             )
-            st.plotly_chart(
-                style_plot(fig, 270),
-                use_container_width=True,
-                config={"displayModeBar": False},
-            )
-            st.caption(
-                "Small synthetic training set; probabilities are "
-                "not calibrated confidence estimates."
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
 
-        with y:
-            st.markdown(
-                '<div class="panel"><div class="ptitle">'
-                '⌕ Retrieval results</div>',
-                unsafe_allow_html=True,
-            )
-            st.markdown("**Baseline retrieval**")
-            show_results(retrieve(q, 2))
+        st.markdown("### Category probabilities")
 
-            st.markdown("**Category-aware reranking**")
-            show_results(rerank(q, pred, 3), True)
-            st.markdown("</div>", unsafe_allow_html=True)
+        prob_df = pd.DataFrame({
+            "Category": list(probabilities.keys()),
+            "Probability": list(probabilities.values()),
+        }).sort_values("Probability", ascending=True)
+
+        fig = px.bar(
+            prob_df,
+            x="Probability",
+            y="Category",
+            orientation="h",
+            range_x=[0, 1],
+            text=prob_df["Probability"].map(
+                lambda x: f"{x:.1%}"
+            ),
+            title="Predicted class probabilities",
+            color="Probability",
+            color_continuous_scale="Blues",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 320),
+            use_container_width=True,
+        )
+
+        st.markdown("### Retrieved documents")
+
+        results = category_rank(
+            query,
+            predicted,
+            k=3,
+        )
+
+        for rank, doc in enumerate(results, start=1):
+            with st.container(border=True):
+                st.markdown(
+                    f"**#{rank} — {doc['title']}**"
+                )
+                st.caption(
+                    f"{doc['id']} • {doc['category']}"
+                )
+                st.write(doc["text"])
+                st.write(
+                    f"Similarity: `{doc['score']:.3f}`  "
+                    f"| Adjusted score: "
+                    f"`{doc['adjusted_score']:.3f}`"
+                )
+
+    else:
+        st.markdown("### Model training data")
+
+        training_df = pd.DataFrame(
+            NB_TRAINING_DATA,
+            columns=["Example text", "Category"],
+        )
+
+        st.dataframe(
+            training_df,
+            use_container_width=True,
+            hide_index=True,
+        )
 
         st.info(
-            "The fixed category bonus is a heuristic. It can improve "
-            "or worsen retrieval and must be evaluated."
+            "Enter a query and click Classify query to see how the "
+            "model predicts a category and how that category can "
+            "influence retrieval."
         )
-    else:
-        st.markdown(
-            '<div class="panel"><div class="ptitle">'
-            'How it connects to RAG</div>'
-            'Naive Bayes predicts whether a question concerns '
-            'troubleshooting, fault isolation or preventive maintenance. '
-            'That intent can help filter or prioritize candidate passages.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+
+    st.markdown("### How Naive Bayes works")
+
+    st.write(
+        "Naive Bayes estimates the probability of a class given the "
+        "observed words. It applies Bayes' theorem and assumes that "
+        "features are conditionally independent given the class."
+    )
+
+    st.latex(
+        r"P(C\mid x_1,\ldots,x_n)"
+        r"\propto P(C)\prod_{i=1}^{n}P(x_i\mid C)"
+    )
+
+    st.caption(
+        "This model uses a small, manually authored synthetic training "
+        "set. Its probabilities are not calibrated operational confidence."
+    )
 
 
 # ============================================================
-# HMM LABORATORY
+# 12. HMM LABORATORY
 # ============================================================
 
 elif page == "HMM Laboratory":
-    st.markdown(
-        '<div class="section-title">'
-        'Hidden Markov Model – Temporal State Tracking</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="section-sub">Infer the most likely hidden-state '
-        'sequence from ordered observations using Viterbi decoding.</div>',
-        unsafe_allow_html=True,
+
+    st.markdown("## Hidden Markov Model Laboratory")
+    st.caption(
+        "Hidden states • Observation sequences • Viterbi decoding"
     )
 
-    st.warning(
-        "Transition and emission probabilities are illustrative "
-        "assumptions, not trained equipment parameters."
+    st.write(
+        "Select a sequence of observable symptoms. The HMM estimates "
+        "the most likely sequence of hidden equipment states."
     )
 
-    obs = st.multiselect(
-        "Select observations in chronological order",
-        OBS,
-        default=OBS,
-        key="hmm_obs",
+    observation_options = HMM_OBSERVATIONS
+
+    default_sequence = [
+        "Normal temperature",
+        "Elevated temperature",
+        "High packet loss",
+        "Repeated restart",
+    ]
+
+    selected_sequence = st.multiselect(
+        "Observation sequence, in time order",
+        options=observation_options,
+        default=default_sequence,
     )
 
-    if obs:
-        states, logp = viterbi(obs)
-        x, y = st.columns([1.1, 1], gap="medium")
+    if not selected_sequence:
+        st.warning("Select at least one observation to run Viterbi.")
+    else:
+        states, final_probs = viterbi(selected_sequence)
 
-        with x:
-            st.markdown(
-                '<div class="panel"><div class="ptitle">'
-                '⌁ Inferred sequence</div>',
-                unsafe_allow_html=True,
+        st.markdown("### Inferred state sequence")
+
+        state_df = pd.DataFrame({
+            "Time step": np.arange(1, len(states) + 1),
+            "Observation": selected_sequence,
+            "Inferred state": states,
+        })
+
+        st.dataframe(
+            state_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        state_colors = {
+            "Normal": GREEN,
+            "Degraded": ORANGE,
+            "Fault": RED,
+        }
+
+        fig = go.Figure()
+
+        for state_name in HMM_STATES:
+            mask = [
+                state == state_name
+                for state in states
+            ]
+
+            times = [
+                i + 1
+                for i, present in enumerate(mask)
+                if present
+            ]
+
+            if times:
+                fig.add_trace(
+                    go.Scatter(
+                        x=times,
+                        y=[state_name] * len(times),
+                        mode="markers+text",
+                        text=[state_name] * len(times),
+                        textposition="top center",
+                        marker=dict(
+                            size=17,
+                            color=state_colors[state_name],
+                        ),
+                        name=state_name,
+                    )
+                )
+
+        fig.update_layout(
+            title="Most likely hidden state over time",
+            xaxis_title="Observation time step",
+            yaxis_title="Inferred state",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 330),
+            use_container_width=True,
+        )
+
+        st.markdown("### Final-step state probabilities")
+
+        prob_df = pd.DataFrame({
+            "State": list(final_probs.keys()),
+            "Probability": list(final_probs.values()),
+        })
+
+        fig = px.bar(
+            prob_df,
+            x="State",
+            y="Probability",
+            range_y=[0, 1],
+            text=prob_df["Probability"].map(
+                lambda x: f"{x:.1%}"
+            ),
+            color="State",
+            color_discrete_map={
+                "Normal": GREEN,
+                "Degraded": ORANGE,
+                "Fault": RED,
+            },
+            title="Normalized final-state scores",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 300),
+            use_container_width=True,
+        )
+
+        st.markdown("### HMM transition matrix")
+
+        transition_df = pd.DataFrame(
+            HMM_TRANSITION,
+            index=HMM_STATES,
+            columns=HMM_STATES,
+        )
+
+        st.dataframe(
+            transition_df.style.format("{:.2f}"),
+            use_container_width=True,
+        )
+
+        st.markdown("### HMM emission matrix")
+
+        emission_df = pd.DataFrame(
+            HMM_EMISSION,
+            index=HMM_STATES,
+            columns=HMM_OBSERVATIONS,
+        )
+
+        st.dataframe(
+            emission_df.style.format("{:.2f}"),
+            use_container_width=True,
+        )
+
+    st.info(
+        "Teaching point: the Viterbi algorithm finds the most likely "
+        "hidden-state sequence given the observations and the model "
+        "parameters. These transition and emission probabilities are "
+        "illustrative, not learned from real equipment histories."
+    )
+
+
+# ============================================================
+# 13. AGENTIC RAG
+# ============================================================
+
+elif page == "Agentic RAG":
+
+    st.markdown("## Agentic RAG")
+    st.caption(
+        "Query understanding • Retrieval • Category-aware reranking"
+    )
+
+    query = st.text_area(
+        "Ask a technical question",
+        value="The equipment is restarting unexpectedly. What should I investigate?",
+        height=100,
+    )
+
+    k = st.slider(
+        "Number of documents to retrieve",
+        min_value=1,
+        max_value=min(6, len(DOCUMENTS)),
+        value=min(3, len(DOCUMENTS)),
+    )
+
+    method = st.radio(
+        "Retrieval strategy",
+        [
+            "Baseline TF-IDF",
+            "Naive Bayes category-aware",
+        ],
+        horizontal=True,
+    )
+
+    if st.button("Run retrieval", type="primary"):
+        predicted_category, probabilities = predict_category(query)
+
+        st.markdown("### Query analysis")
+
+        st.write(
+            f"**Predicted category:** "
+            f"`{predicted_category}`"
+        )
+
+        if method == "Baseline TF-IDF":
+            results = retrieve(query, k=k)
+        else:
+            results = category_rank(
+                query,
+                predicted_category,
+                k=k,
             )
 
+        st.markdown("### Retrieved evidence")
+
+        for rank, doc in enumerate(results, start=1):
+            with st.container(border=True):
+                top_col, score_col = st.columns([4, 1])
+
+                with top_col:
+                    st.markdown(
+                        f"### {rank}. {doc['title']}"
+                    )
+                    st.caption(
+                        f"Source: {doc['id']}  •  "
+                        f"Category: {doc['category']}"
+                    )
+
+                with score_col:
+                    score = doc.get(
+                        "adjusted_score",
+                        doc["score"],
+                    )
+                    st.metric("Score", f"{score:.3f}")
+
+                st.write(doc["text"])
+
+        with st.expander("View classifier probabilities"):
+            probability_df = pd.DataFrame({
+                "Category": list(probabilities.keys()),
+                "Probability": list(probabilities.values()),
+            }).sort_values("Probability", ascending=False)
+
             st.dataframe(
-                pd.DataFrame({
-                    "Step": range(1, len(obs) + 1),
-                    "Observation": obs,
-                    "Inferred state": states,
-                }),
+                probability_df,
                 use_container_width=True,
                 hide_index=True,
             )
 
-            st.markdown("#### " + " → ".join(states))
-            st.metric("Final inferred state", states[-1])
-            st.caption(
-                f"Best-path log probability: {logp:.3f}; "
-                "this is not a fault probability."
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("### Retrieval score comparison")
 
-        with y:
-            st.markdown(
-                '<div class="panel"><div class="ptitle">'
-                '⇢ State transition matrix</div>',
-                unsafe_allow_html=True,
-            )
-
-            fig = px.imshow(
-                pd.DataFrame(TRANS, index=STATES, columns=STATES),
-                text_auto=".2f",
-                color_continuous_scale="Blues",
-            )
-            st.plotly_chart(
-                style_plot(fig, 300),
-                use_container_width=True,
-                config={"displayModeBar": False},
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        category = (
-            "fault_isolation"
-            if states[-1] == "Fault"
-            else (
-                "troubleshooting"
-                if states[-1] == "Degraded"
-                else "preventive_maintenance"
-            )
-        )
-
-        st.markdown(
-            '<div class="panel"><div class="ptitle">'
-            '⌕ Use inferred state as RAG context</div>',
-            unsafe_allow_html=True,
-        )
-        st.write(
-            "Proposed retrieval category: **"
-            + category.replace("_", " ").title()
-            + "**"
-        )
-
-        if st.button(
-            "RETRIEVE STATE-RELEVANT DOCUMENTS",
-            type="primary",
-            use_container_width=True,
-        ):
-            show_results(rerank(" ".join(obs), category, 3), True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ============================================================
-# AGENTIC RAG LABORATORY
-# ============================================================
-
-elif page == "Agentic RAG":
-    st.markdown(
-        '<div class="section-title">'
-        'Agentic RAG – Evidence-Grounded Technical Assistant</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="section-sub">A transparent workflow: '
-        'query interpretation → retrieval → evidence inspection.</div>',
-        unsafe_allow_html=True,
-    )
-
-    q = st.text_input(
-        "Ask the technical assistant",
-        placeholder=(
-            "Why might the unit restart while packet loss is increasing?"
-        ),
-        key="agent_query",
-    )
-
-    x, y = st.columns(2)
-
-    with x:
-        k = st.selectbox(
-            "Evidence passages",
-            [1, 2, 3, 5],
-            index=2,
-        )
-
-    with y:
-        use_nb = st.toggle(
-            "Use Naive Bayes query intent",
-            value=True,
-        )
-
-    if st.button(
-        "RUN RETRIEVAL WORKFLOW",
-        type="primary",
-        use_container_width=True,
-    ):
-        if not q.strip():
-            st.warning("Enter a question first.")
+        if method == "Naive Bayes category-aware":
+            score_key = "adjusted_score"
+            chart_title = "Category-adjusted retrieval scores"
         else:
-            if use_nb:
-                category, probs = classify(q)
-            else:
-                category, probs = None, {}
+            score_key = "score"
+            chart_title = "Baseline TF-IDF similarity scores"
 
-            x, y = st.columns([0.9, 1.2], gap="medium")
+        score_df = pd.DataFrame([
+            {
+                "Document": doc["id"],
+                "Title": doc["title"],
+                "Score": doc[score_key],
+            }
+            for doc in results
+        ])
 
-            with x:
-                st.markdown(
-                    '<div class="panel"><div class="ptitle">'
-                    '01 · Query interpretation</div>',
-                    unsafe_allow_html=True,
-                )
+        fig = px.bar(
+            score_df,
+            x="Document",
+            y="Score",
+            hover_name="Title",
+            title=chart_title,
+            color="Score",
+            color_continuous_scale="Teal",
+        )
 
-                if category:
-                    st.markdown(
-                        "**Predicted intent:** "
-                        + category.replace("_", " ").title()
-                    )
+        st.plotly_chart(
+            style_plot(fig, 320),
+            use_container_width=True,
+        )
 
-                    st.dataframe(
-                        pd.DataFrame({
-                            "Category": list(probs.keys()),
-                            "Probability": list(probs.values()),
-                        }),
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-                else:
-                    st.write("Intent classification disabled.")
+    st.markdown("### Current prototype architecture")
 
-                st.success("Synthetic corpus ready")
-                st.success("Retrieval executed")
-                st.markdown("</div>", unsafe_allow_html=True)
+    st.graphviz_chart(
+        """
+        digraph RAG {
+            rankdir=LR;
+            bgcolor="transparent";
+            node [
+                shape=box,
+                style="rounded,filled",
+                fillcolor="#111827",
+                color="#22D3EE",
+                fontcolor="white",
+                fontname="Arial"
+            ];
+            edge [
+                color="#64748B",
+                fontcolor="white",
+                fontname="Arial"
+            ];
 
-            with y:
-                st.markdown(
-                    '<div class="panel"><div class="ptitle">'
-                    '02 · Retrieved evidence</div>',
-                    unsafe_allow_html=True,
-                )
+            Q [label="User Query"];
+            C [label="Naive Bayes\\nCategory"];
+            R [label="TF-IDF\\nRetrieval"];
+            RR [label="Category-aware\\nReranking"];
+            D [label="Retrieved\\nDocuments"];
 
-                if category:
-                    show_results(rerank(q, category, k), True)
-                else:
-                    show_results(retrieve(q, k))
+            Q -> R;
+            Q -> C;
+            R -> RR;
+            C -> RR;
+            RR -> D;
+        }
+        """
+    )
 
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown(
-                '<div class="takeaway">'
-                '<div class="take-title">'
-                '03 · Evidence-grounded response status</div>'
-                'This prototype retrieves passages and exposes decision '
-                'signals. It does not connect an LLM or autonomously '
-                'execute maintenance actions. A production system should '
-                'cite approved sources and defer operational decisions '
-                'to authorized procedures and qualified personnel.'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+    st.info(
+        "This is a retrieval prototype, not a complete autonomous "
+        "agent or a production generative-answer system. It retrieves "
+        "evidence from synthetic documents but does not call an LLM "
+        "to generate a grounded answer."
+    )
 
 
 # ============================================================
-# FOOTER
+# 14. RAG EVALUATION LAB
+# ============================================================
+
+elif page == "RAG Evaluation Lab":
+
+    st.markdown("## RAG Evaluation Laboratory")
+    st.caption(
+        "Ground-truth evaluation • Recall@3 • MRR • "
+        "Ranking changes and failure analysis"
+    )
+
+    st.markdown(
+        """
+        This experiment compares two retrieval strategies over a fixed
+        set of labelled synthetic technical questions:
+
+        - **Baseline RAG:** TF-IDF similarity only.
+        - **Category-aware RAG:** Naive Bayes predicts a category, and
+          matching documents receive a ranking bonus.
+        """
+    )
+
+    st.warning(
+        "The relevance labels are manually assigned teaching labels. "
+        "Review them if a question has more than one valid answer."
+    )
+
+    # Evaluation controls
+    bonus = st.slider(
+        "Category ranking bonus",
+        min_value=0.0,
+        max_value=0.5,
+        value=0.15,
+        step=0.05,
+        help=(
+            "This value is added to the TF-IDF similarity score "
+            "for documents in the predicted category."
+        ),
+    )
+
+    def evaluate_with_bonus(bonus_value):
+        metric_rows = []
+        detail_rows = []
+
+        for item in EVALUATION_SET:
+            query = item["question"]
+            relevant_ids = item["relevant"]
+
+            baseline = retrieve(query, k=3)
+
+            predicted_category, probabilities = predict_category(
+                query
+            )
+
+            category_results = category_rank(
+                query,
+                predicted_category,
+                k=3,
+                bonus=bonus_value,
+            )
+
+            base_recall, base_rr = evaluate_retrieval(
+                baseline,
+                relevant_ids,
+            )
+
+            cat_recall, cat_rr = evaluate_retrieval(
+                category_results,
+                relevant_ids,
+            )
+
+            baseline_ids = [
+                doc["id"] for doc in baseline
+            ]
+
+            category_ids = [
+                doc["id"] for doc in category_results
+            ]
+
+            metric_rows.append({
+                "Question": query,
+                "Baseline Recall@3": base_recall,
+                "Category Recall@3": cat_recall,
+                "Baseline RR": base_rr,
+                "Category RR": cat_rr,
+            })
+
+            detail_rows.append({
+                "Question": query,
+                "Relevant IDs": ", ".join(relevant_ids),
+                "NB predicted category": predicted_category,
+                "Baseline ranking": " → ".join(baseline_ids),
+                "Category-aware ranking": " → ".join(category_ids),
+                "Ranking changed": baseline_ids != category_ids,
+                "Baseline hit": bool(
+                    set(baseline_ids) & set(relevant_ids)
+                ),
+                "Category-aware hit": bool(
+                    set(category_ids) & set(relevant_ids)
+                ),
+            })
+
+        return (
+            pd.DataFrame(metric_rows),
+            pd.DataFrame(detail_rows),
+        )
+
+    metrics_df, details_df = evaluate_with_bonus(bonus)
+
+    # Overall metrics
+    baseline_recall = metrics_df[
+        "Baseline Recall@3"
+    ].mean()
+
+    category_recall = metrics_df[
+        "Category Recall@3"
+    ].mean()
+
+    baseline_mrr = metrics_df["Baseline RR"].mean()
+    category_mrr = metrics_df["Category RR"].mean()
+
+    st.markdown("### Overall performance")
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Baseline Recall@3",
+        f"{baseline_recall:.1%}",
+    )
+
+    c2.metric(
+        "Category Recall@3",
+        f"{category_recall:.1%}",
+        delta=f"{category_recall - baseline_recall:+.1%}",
+    )
+
+    c3.metric(
+        "Baseline MRR",
+        f"{baseline_mrr:.3f}",
+    )
+
+    c4.metric(
+        "Category MRR",
+        f"{category_mrr:.3f}",
+        delta=f"{category_mrr - baseline_mrr:+.3f}",
+    )
+
+    st.markdown("### Metric comparison")
+
+    chart_df = pd.DataFrame({
+        "Metric": ["Recall@3", "MRR"],
+        "Baseline RAG": [
+            baseline_recall,
+            baseline_mrr,
+        ],
+        "Category-aware RAG": [
+            category_recall,
+            category_mrr,
+        ],
+    }).melt(
+        id_vars="Metric",
+        var_name="System",
+        value_name="Score",
+    )
+
+    fig = px.bar(
+        chart_df,
+        x="Metric",
+        y="Score",
+        color="System",
+        barmode="group",
+        range_y=[0, 1],
+        text_auto=".2f",
+        title="Baseline vs Category-aware Retrieval",
+        color_discrete_sequence=[BLUE, CYAN],
+    )
+
+    st.plotly_chart(
+        style_plot(fig, 370),
+        use_container_width=True,
+    )
+
+    st.markdown("### Question-level performance")
+
+    question_chart_df = metrics_df.melt(
+        id_vars="Question",
+        value_vars=[
+            "Baseline Recall@3",
+            "Category Recall@3",
+        ],
+        var_name="System",
+        value_name="Recall",
+    )
+
+    fig = px.bar(
+        question_chart_df,
+        x="Recall",
+        y="Question",
+        color="System",
+        barmode="group",
+        orientation="h",
+        range_x=[0, 1],
+        title="Recall@3 for each evaluation question",
+        color_discrete_sequence=[BLUE, CYAN],
+    )
+
+    st.plotly_chart(
+        style_plot(fig, 470),
+        use_container_width=True,
+    )
+
+    st.markdown("### Ranking changes and failure analysis")
+
+    st.dataframe(
+        details_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    with st.expander("View question-level metric details"):
+        st.dataframe(
+            metrics_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    changed_count = int(
+        details_df["Ranking changed"].sum()
+    )
+
+    improved_count = int(
+        (
+            details_df["Category-aware hit"]
+            & ~details_df["Baseline hit"]
+        ).sum()
+    )
+
+    regressed_count = int(
+        (
+            details_df["Baseline hit"]
+            & ~details_df["Category-aware hit"]
+        ).sum()
+    )
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Rankings changed",
+        f"{changed_count}/{len(EVALUATION_SET)}",
+    )
+
+    c2.metric(
+        "New successful hits",
+        improved_count,
+    )
+
+    c3.metric(
+        "Lost successful hits",
+        regressed_count,
+    )
+
+    st.markdown("### Inspect one evaluation question")
+
+    selected_question = st.selectbox(
+        "Choose a question",
+        options=[
+            item["question"]
+            for item in EVALUATION_SET
+        ],
+    )
+
+    selected_item = next(
+        item
+        for item in EVALUATION_SET
+        if item["question"] == selected_question
+    )
+
+    selected_relevant = selected_item["relevant"]
+
+    baseline_selected = retrieve(
+        selected_question,
+        k=3,
+    )
+
+    selected_category, selected_probs = predict_category(
+        selected_question
+    )
+
+    category_selected = category_rank(
+        selected_question,
+        selected_category,
+        k=3,
+        bonus=bonus,
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown("#### Baseline results")
+
+        for rank, doc in enumerate(
+            baseline_selected,
+            start=1,
+        ):
+            is_relevant = doc["id"] in selected_relevant
+
+            if is_relevant:
+                st.success(
+                    f"#{rank} {doc['id']} — {doc['title']} "
+                    f"(relevant)"
+                )
+            else:
+                st.write(
+                    f"#{rank} {doc['id']} — {doc['title']}"
+                )
+
+            st.caption(
+                f"TF-IDF score: {doc['score']:.3f}"
+            )
+
+    with right:
+        st.markdown("#### Category-aware results")
+
+        st.caption(
+            f"Naive Bayes category: {selected_category}"
+        )
+
+        for rank, doc in enumerate(
+            category_selected,
+            start=1,
+        ):
+            is_relevant = doc["id"] in selected_relevant
+
+            if is_relevant:
+                st.success(
+                    f"#{rank} {doc['id']} — {doc['title']} "
+                    f"(relevant)"
+                )
+            else:
+                st.write(
+                    f"#{rank} {doc['id']} — {doc['title']}"
+                )
+
+            st.caption(
+                f"Similarity: {doc['score']:.3f} • "
+                f"Adjusted: {doc['adjusted_score']:.3f}"
+            )
+
+    st.markdown("### Ground-truth labels")
+
+    ground_truth_df = pd.DataFrame([
+        {
+            "Question": item["question"],
+            "Relevant document IDs": ", ".join(
+                item["relevant"]
+            ),
+        }
+        for item in EVALUATION_SET
+    ])
+
+    st.dataframe(
+        ground_truth_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.info(
+        "Interpretation: Recall@3 measures the fraction of labelled "
+        "relevant documents found in the top three. MRR rewards finding "
+        "the first relevant result near the top. A ranking change is not "
+        "automatically an improvement; use the relevance labels to judge it."
+    )
+
+    st.caption(
+        "Scope: six synthetic documents and six manually labelled "
+        "questions. This is an educational experiment, not a statistically "
+        "robust benchmark. Results depend on the labels, training examples, "
+        "similarity scores, and category bonus."
+    )
+
+
+# ============================================================
+# 15. FOOTER
+# ============================================================
+
+st.divider()
+
+st.markdown(
+    f"""
+    <div style="text-align: center; padding: 12px 0 5px 0;">
+        <div style="font-size: 12px; color: {MUTED};">
+            TECHNICAL AI MODEL LABORATORY
+        </div>
+        <div style="font-size: 11px; color: #64748B;
+                    margin-top: 5px;">
+            VAE • Naive Bayes • HMM • RAG • Evaluation
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+import streamlit as st
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+from documents import DOCUMENTS
+
+
+# ============================================================
+# 1. PAGE CONFIGURATION AND THEME
+# ============================================================
+
+st.set_page_config(
+    page_title="Technical AI Model Laboratory",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+BG = "#080D18"
+PANEL = "#111827"
+BORDER = "#263449"
+CYAN = "#22D3EE"
+BLUE = "#60A5FA"
+PURPLE = "#A78BFA"
+GREEN = "#34D399"
+ORANGE = "#FBBF24"
+RED = "#FB7185"
+TEXT = "#E5E7EB"
+MUTED = "#94A3B8"
+
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background: {BG};
+        color: {TEXT};
+    }}
+
+    [data-testid="stSidebar"] {{
+        background: #0B1220;
+        border-right: 1px solid {BORDER};
+    }}
+
+    .block-container {{
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+        max-width: 1600px;
+    }}
+
+    h1, h2, h3 {{
+        color: {TEXT} !important;
+        letter-spacing: -0.4px;
+    }}
+
+    p, li, label {{
+        color: {TEXT};
+    }}
+
+    .hero {{
+        padding: 26px 30px;
+        border: 1px solid {BORDER};
+        border-radius: 18px;
+        background:
+            linear-gradient(120deg, #111827 0%, #101B30 60%,
+            #17243A 100%);
+        margin-bottom: 24px;
+    }}
+
+    .hero-title {{
+        font-size: 31px;
+        font-weight: 800;
+        color: #F8FAFC;
+        margin-bottom: 8px;
+    }}
+
+    .hero-subtitle {{
+        font-size: 15px;
+        color: {MUTED};
+        line-height: 1.7;
+    }}
+
+    .eyebrow {{
+        color: {CYAN};
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }}
+
+    .panel {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 15px;
+    }}
+
+    .panel-label {{
+        font-size: 12px;
+        color: {MUTED};
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+    }}
+
+    .panel-value {{
+        font-size: 28px;
+        font-weight: 800;
+        color: #F8FAFC;
+        margin-top: 7px;
+    }}
+
+    .panel-note {{
+        color: {MUTED};
+        font-size: 12px;
+        margin-top: 5px;
+    }}
+
+    .status-dot {{
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: {GREEN};
+        margin-right: 8px;
+    }}
+
+    .small-muted {{
+        color: {MUTED};
+        font-size: 12px;
+    }}
+
+    div[data-testid="stMetric"] {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        padding: 15px;
+        border-radius: 12px;
+    }}
+
+    div[data-testid="stMetricLabel"] {{
+        color: {MUTED};
+    }}
+
+    div[data-testid="stMetricValue"] {{
+        color: #F8FAFC;
+    }}
+
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid {BORDER};
+        border-radius: 10px;
+        overflow: hidden;
+    }}
+
+    .stButton > button {{
+        border-radius: 9px;
+        font-weight: 700;
+        border: 1px solid {BORDER};
+    }}
+
+    hr {{
+        border-color: {BORDER};
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
+# 2. COMMON UTILITIES
+# ============================================================
+
+def panel(label, value, note=""):
+    """Display a dashboard metric card."""
+    st.markdown(
+        f"""
+        <div class="panel">
+            <div class="panel-label">{label}</div>
+            <div class="panel-value">{value}</div>
+            <div class="panel-note">{note}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def style_plot(fig, height=350):
+    """Apply the common dark dashboard style to Plotly figures."""
+    fig.update_layout(
+        height=height,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=TEXT, family="Arial"),
+        margin=dict(l=20, r=20, t=55, b=25),
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(color=TEXT),
+        ),
+        title_font=dict(size=16, color=TEXT),
+    )
+
+    fig.update_xaxes(
+        gridcolor=BORDER,
+        zerolinecolor=BORDER,
+    )
+    fig.update_yaxes(
+        gridcolor=BORDER,
+        zerolinecolor=BORDER,
+    )
+    return fig
+
+
+def get_document_text(doc):
+    return f"{doc['title']} {doc['text']}"
+
+
+# ============================================================
+# 3. DOCUMENT RETRIEVAL
+# ============================================================
+
+@st.cache_resource
+def build_retrieval_index():
+    """Build a TF-IDF index from the synthetic document corpus."""
+    corpus = [get_document_text(doc) for doc in DOCUMENTS]
+
+    vectorizer = TfidfVectorizer(
+        stop_words="english",
+        ngram_range=(1, 2),
+        sublinear_tf=True,
+    )
+
+    matrix = vectorizer.fit_transform(corpus)
+    return vectorizer, matrix
+
+
+def retrieve(query, k=3):
+    """Return the top-k documents using TF-IDF cosine similarity."""
+    vectorizer, matrix = build_retrieval_index()
+
+    query_vector = vectorizer.transform([query])
+    scores = cosine_similarity(query_vector, matrix).flatten()
+
+    order = np.argsort(scores)[::-1][:k]
+
+    results = []
+    for idx in order:
+        doc = DOCUMENTS[int(idx)].copy()
+        doc["score"] = float(scores[idx])
+        results.append(doc)
+
+    return results
+
+
+# ============================================================
+# 4. NAIVE BAYES CLASSIFIER
+# ============================================================
+
+NB_TRAINING_DATA = [
+    (
+        "equipment temperature high cooling ventilation airflow",
+        "preventive_maintenance",
+    ),
+    (
+        "inspect equipment ventilation connectors operating logs",
+        "preventive_maintenance",
+    ),
+    (
+        "preventive inspection maintenance schedule abnormal indications",
+        "preventive_maintenance",
+    ),
+    (
+        "monitor temperature operating limits cooling system",
+        "preventive_maintenance",
+    ),
+    (
+        "communication intermittent signal degradation interference",
+        "troubleshooting",
+    ),
+    (
+        "packet loss link quality congestion communication",
+        "troubleshooting",
+    ),
+    (
+        "communication dropping connector problems signal quality",
+        "troubleshooting",
+    ),
+    (
+        "investigate link degradation and record packet loss",
+        "troubleshooting",
+    ),
+    (
+        "unexpected restarts watchdog events software faults",
+        "fault_isolation",
+    ),
+    (
+        "unstable power causes resets intermittent operation",
+        "fault_isolation",
+    ),
+    (
+        "review restart event logs and power observations",
+        "fault_isolation",
+    ),
+    (
+        "fault isolation diagnose reset power stability",
+        "fault_isolation",
+    ),
+]
+
+
+@st.cache_resource
+def build_nb_model():
+    texts = [item[0] for item in NB_TRAINING_DATA]
+    labels = [item[1] for item in NB_TRAINING_DATA]
+
+    model = Pipeline([
+        (
+            "tfidf",
+            TfidfVectorizer(
+                stop_words="english",
+                ngram_range=(1, 2),
+            ),
+        ),
+        ("classifier", MultinomialNB(alpha=0.5)),
+    ])
+
+    model.fit(texts, labels)
+    return model
+
+
+def predict_category(query):
+    model = build_nb_model()
+    predicted = model.predict([query])[0]
+
+    probabilities = model.predict_proba([query])[0]
+    classes = model.named_steps["classifier"].classes_
+
+    probability_map = {
+        str(category): float(probability)
+        for category, probability in zip(classes, probabilities)
+    }
+
+    return predicted, probability_map
+
+
+def category_rank(query, predicted_category, k=3, bonus=0.15):
+    """
+    Category-aware retrieval.
+
+    The category prediction is supplied by the Naive Bayes classifier.
+    A bonus is added to documents in that category.
+    """
+    results = retrieve(query, k=len(DOCUMENTS))
+
+    for doc in results:
+        doc["adjusted_score"] = (
+            doc["score"]
+            + (
+                bonus
+                if doc["category"] == predicted_category
+                else 0.0
+            )
+        )
+
+    results.sort(
+        key=lambda doc: doc["adjusted_score"],
+        reverse=True,
+    )
+
+    return results[:k]
+
+
+# ============================================================
+# 5. HIDDEN MARKOV MODEL AND VITERBI
+# ============================================================
+
+HMM_STATES = ["Normal", "Degraded", "Fault"]
+
+HMM_OBSERVATIONS = [
+    "Normal temperature",
+    "Elevated temperature",
+    "High packet loss",
+    "Repeated restart",
+]
+
+HMM_TRANSITION = np.array([
+    [0.80, 0.17, 0.03],
+    [0.15, 0.65, 0.20],
+    [0.05, 0.15, 0.80],
+])
+
+HMM_EMISSION = np.array([
+    [0.75, 0.10, 0.12, 0.03],
+    [0.15, 0.45, 0.32, 0.08],
+    [0.05, 0.10, 0.15, 0.70],
+])
+
+HMM_INITIAL = np.array([0.80, 0.15, 0.05])
+
+
+def viterbi(observation_sequence):
+    """Infer the most likely hidden-state sequence."""
+    obs_indices = [
+        HMM_OBSERVATIONS.index(obs)
+        for obs in observation_sequence
+    ]
+
+    n_states = len(HMM_STATES)
+    n_steps = len(obs_indices)
+
+    log_transition = np.log(HMM_TRANSITION + 1e-12)
+    log_emission = np.log(HMM_EMISSION + 1e-12)
+    log_initial = np.log(HMM_INITIAL + 1e-12)
+
+    dp = np.zeros((n_steps, n_states))
+    backpointer = np.zeros(
+        (n_steps, n_states),
+        dtype=int,
+    )
+
+    first_obs = obs_indices[0]
+    dp[0] = (
+        log_initial
+        + log_emission[:, first_obs]
+    )
+
+    for t in range(1, n_steps):
+        obs = obs_indices[t]
+
+        for state in range(n_states):
+            candidates = (
+                dp[t - 1]
+                + log_transition[:, state]
+            )
+
+            best_previous = int(np.argmax(candidates))
+
+            dp[t, state] = (
+                candidates[best_previous]
+                + log_emission[state, obs]
+            )
+
+            backpointer[t, state] = best_previous
+
+    last_state = int(np.argmax(dp[-1]))
+    best_path = [last_state]
+
+    for t in range(n_steps - 1, 0, -1):
+        last_state = backpointer[t, last_state]
+        best_path.append(int(last_state))
+
+    best_path.reverse()
+
+    state_sequence = [
+        HMM_STATES[state]
+        for state in best_path
+    ]
+
+    final_probs = np.exp(dp[-1] - np.max(dp[-1]))
+    final_probs = final_probs / final_probs.sum()
+
+    state_probabilities = {
+        HMM_STATES[i]: float(final_probs[i])
+        for i in range(n_states)
+    }
+
+    return state_sequence, state_probabilities
+
+
+# ============================================================
+# 6. VARIATIONAL AUTOENCODER
+# ============================================================
+
+FEATURES = [
+    "Temperature",
+    "Vibration",
+    "Voltage",
+    "Packet Loss",
+]
+
+
+class TelemetryVAE(nn.Module):
+    def __init__(self, input_dim=4, latent_dim=2):
+        super().__init__()
+
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 12),
+            nn.ReLU(),
+        )
+
+        self.mu = nn.Linear(12, latent_dim)
+        self.logvar = nn.Linear(12, latent_dim)
+
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 12),
+            nn.ReLU(),
+            nn.Linear(12, input_dim),
+        )
+
+    def encode(self, x):
+        hidden = self.encoder(x)
+        return self.mu(hidden), self.logvar(hidden)
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        epsilon = torch.randn_like(std)
+        return mu + epsilon * std
+
+    def decode(self, z):
+        return self.decoder(z)
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        reconstruction = self.decode(z)
+
+        return reconstruction, mu, logvar
+
+
+@st.cache_resource
+def train_vae():
+    """Train a small VAE using synthetic normal telemetry."""
+    np.random.seed(42)
+    torch.manual_seed(42)
+
+    normal_data = np.column_stack([
+        np.random.normal(55, 5, 900),
+        np.random.normal(1.0, 0.22, 900),
+        np.random.normal(28, 0.8, 900),
+        np.clip(
+            np.random.normal(0.6, 0.25, 900),
+            0,
+            None,
+        ),
+    ])
+
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(normal_data)
+
+    tensor_data = torch.tensor(
+        scaled_data,
+        dtype=torch.float32,
+    )
+
+    dataset = TensorDataset(tensor_data)
+    loader = DataLoader(
+        dataset,
+        batch_size=64,
+        shuffle=True,
+    )
+
+    model = TelemetryVAE(
+        input_dim=4,
+        latent_dim=2,
+    )
+
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=0.003,
+    )
+
+    epochs = 120
+
+    model.train()
+
+    for _ in range(epochs):
+        for (batch,) in loader:
+            optimizer.zero_grad()
+
+            reconstruction, mu, logvar = model(batch)
+
+            reconstruction_loss = nn.functional.mse_loss(
+                reconstruction,
+                batch,
+                reduction="mean",
+            )
+
+            kl_loss = -0.5 * torch.mean(
+                1
+                + logvar
+                - mu.pow(2)
+                - logvar.exp()
+            )
+
+            loss = reconstruction_loss + 0.01 * kl_loss
+
+            loss.backward()
+            optimizer.step()
+
+    model.eval()
+
+    with torch.no_grad():
+        reconstruction, _, _ = model(tensor_data)
+
+        train_errors = torch.mean(
+            (tensor_data - reconstruction) ** 2,
+            dim=1,
+        ).numpy()
+
+    threshold = float(np.percentile(train_errors, 95))
+
+    return model, scaler, normal_data, threshold, train_errors
+
+
+def analyze_telemetry(values):
+    model, scaler, _, threshold, _ = train_vae()
+
+    scaled = scaler.transform(
+        np.array(values, dtype=float).reshape(1, -1)
+    )
+
+    tensor = torch.tensor(
+        scaled,
+        dtype=torch.float32,
+    )
+
+    with torch.no_grad():
+        reconstruction, mu, logvar = model(tensor)
+
+    reconstructed_scaled = reconstruction.numpy()
+    reconstructed_original = scaler.inverse_transform(
+        reconstructed_scaled
+    )[0]
+
+    error = float(
+        np.mean(
+            (scaled - reconstructed_scaled) ** 2
+        )
+    )
+
+    latent = mu.numpy()[0]
+
+    return {
+        "error": error,
+        "threshold": threshold,
+        "anomaly": error > threshold,
+        "reconstruction": reconstructed_original,
+        "latent": latent,
+    }
+
+
+# ============================================================
+# 7. GROUND-TRUTH RAG EVALUATION
+# ============================================================
+
+EVALUATION_SET = [
+    {
+        "question": "Why is the equipment temperature increasing?",
+        "relevant": ["MAN-001"],
+    },
+    {
+        "question": "Communication keeps dropping intermittently.",
+        "relevant": ["MAN-002"],
+    },
+    {
+        "question": "The equipment is restarting unexpectedly.",
+        "relevant": ["MAN-003", "MAN-006"],
+    },
+    {
+        "question": "How should increasing packet loss be investigated?",
+        "relevant": ["MAN-004"],
+    },
+    {
+        "question": "What should a preventive inspection include?",
+        "relevant": ["MAN-005"],
+    },
+    {
+        "question": "What could cause resets due to unstable power?",
+        "relevant": ["MAN-006", "MAN-003"],
+    },
+]
+
+
+def evaluate_retrieval(ranked_docs, relevant_ids, k=3):
+    """Return Recall@k and reciprocal rank."""
+    relevant = set(relevant_ids)
+
+    ranked_ids = [
+        doc["id"]
+        for doc in ranked_docs
+    ]
+
+    top_k = ranked_ids[:k]
+
+    recall = (
+        len(set(top_k) & relevant) / len(relevant)
+        if relevant
+        else 0.0
+    )
+
+    reciprocal_rank = 0.0
+
+    for rank, doc_id in enumerate(ranked_ids, start=1):
+        if doc_id in relevant:
+            reciprocal_rank = 1.0 / rank
+            break
+
+    return recall, reciprocal_rank
+
+
+def run_evaluation():
+    metric_rows = []
+    detail_rows = []
+
+    for item in EVALUATION_SET:
+        query = item["question"]
+        relevant_ids = item["relevant"]
+
+        baseline = retrieve(query, k=3)
+
+        predicted_category, _ = predict_category(query)
+
+        category_results = category_rank(
+            query,
+            predicted_category,
+            k=3,
+        )
+
+        baseline_recall, baseline_rr = evaluate_retrieval(
+            baseline,
+            relevant_ids,
+        )
+
+        category_recall, category_rr = evaluate_retrieval(
+            category_results,
+            relevant_ids,
+        )
+
+        baseline_ids = [
+            doc["id"] for doc in baseline
+        ]
+
+        category_ids = [
+            doc["id"] for doc in category_results
+        ]
+
+        metric_rows.append({
+            "Question": query,
+            "Baseline Recall@3": baseline_recall,
+            "Category Recall@3": category_recall,
+            "Baseline RR": baseline_rr,
+            "Category RR": category_rr,
+        })
+
+        detail_rows.append({
+            "Question": query,
+            "Relevant IDs": ", ".join(relevant_ids),
+            "NB predicted category": predicted_category,
+            "Baseline ranking": " → ".join(baseline_ids),
+            "Category-aware ranking": " → ".join(category_ids),
+            "Ranking changed": baseline_ids != category_ids,
+            "Baseline hit": bool(
+                set(baseline_ids) & set(relevant_ids)
+            ),
+            "Category-aware hit": bool(
+                set(category_ids) & set(relevant_ids)
+            ),
+        })
+
+    metrics_df = pd.DataFrame(metric_rows)
+    details_df = pd.DataFrame(detail_rows)
+
+    summary = {
+        "baseline_recall": float(
+            metrics_df["Baseline Recall@3"].mean()
+        ),
+        "category_recall": float(
+            metrics_df["Category Recall@3"].mean()
+        ),
+        "baseline_mrr": float(
+            metrics_df["Baseline RR"].mean()
+        ),
+        "category_mrr": float(
+            metrics_df["Category RR"].mean()
+        ),
+    }
+
+    return metrics_df, details_df, summary
+
+
+# ============================================================
+# 8. SIDEBAR NAVIGATION
+# ============================================================
+
+with st.sidebar:
+    st.markdown(
+        f"""
+        <div style="padding: 10px 4px 22px 4px;">
+            <div style="font-size: 28px; font-weight: 900;
+                        color: {CYAN};">
+                MM AI
+            </div>
+            <div style="font-size: 12px; color: {MUTED};
+                        letter-spacing: 1px;">
+                MODEL LABORATORY
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("### NAVIGATION")
+
+    page = st.radio(
+        "Select laboratory",
+        [
+            "VAE Laboratory",
+            "Naive Bayes Laboratory",
+            "HMM Laboratory",
+            "Agentic RAG",
+            "RAG Evaluation Lab",
+        ],
+        label_visibility="collapsed",
+    )
+
+    st.divider()
+
+    st.markdown("### SYSTEM STATUS")
+
+    st.markdown(
+        f"""
+        <div style="color: {GREEN}; font-size: 13px;">
+            <span class="status-dot"></span>Application loaded
+        </div>
+        <div style="color: {MUTED}; font-size: 12px;
+                    margin-top: 8px;">
+            Synthetic demonstration data<br>
+            Local model inference
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    st.caption("Technical AI Model Laboratory")
+    st.caption("Educational prototype • Synthetic data only")
+
+
+# ============================================================
+# 9. COMMON PAGE HEADER
 # ============================================================
 
 st.markdown(
-    '<div class="micro" style="text-align:center;padding:18px 0">'
-    'Technical AI Model Laboratory · Synthetic educational demonstrator · '
-    'Not for operational maintenance decisions</div>',
+    """
+    <div class="hero">
+        <div class="eyebrow">INTELLIGENT SYSTEMS • EXPERIMENTAL LAB</div>
+        <div class="hero-title">Technical AI Model Laboratory</div>
+        <div class="hero-subtitle">
+            Explore anomaly detection, probabilistic classification,
+            hidden-state inference, and retrieval-augmented generation
+            through interactive experiments.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
+# 10. VAE LABORATORY
+# ============================================================
+
+if page == "VAE Laboratory":
+
+    st.markdown("## VAE Laboratory")
+    st.caption(
+        "Variational Autoencoder • Telemetry reconstruction • "
+        "Anomaly detection"
+    )
+
+    model, scaler, normal_data, threshold, train_errors = train_vae()
+
+    st.markdown("### Live telemetry input")
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        temperature = st.slider(
+            "Temperature",
+            min_value=20.0,
+            max_value=120.0,
+            value=55.0,
+            step=1.0,
+            help="Synthetic equipment temperature.",
+        )
+
+    with c2:
+        vibration = st.slider(
+            "Vibration",
+            min_value=0.0,
+            max_value=5.0,
+            value=1.0,
+            step=0.1,
+        )
+
+    with c3:
+        voltage = st.slider(
+            "Voltage",
+            min_value=15.0,
+            max_value=40.0,
+            value=28.0,
+            step=0.5,
+        )
+
+    with c4:
+        packet_loss = st.slider(
+            "Packet loss",
+            min_value=0.0,
+            max_value=10.0,
+            value=0.6,
+            step=0.1,
+        )
+
+    telemetry = [
+        temperature,
+        vibration,
+        voltage,
+        packet_loss,
+    ]
+
+    analysis = analyze_telemetry(telemetry)
+
+    metric1, metric2, metric3 = st.columns(3)
+
+    with metric1:
+        panel(
+            "Reconstruction error",
+            f"{analysis['error']:.4f}",
+            "Mean squared error in standardized feature space",
+        )
+
+    with metric2:
+        panel(
+            "Training threshold",
+            f"{analysis['threshold']:.4f}",
+            "95th percentile of synthetic training errors",
+        )
+
+    with metric3:
+        status = (
+            "ANOMALY DETECTED"
+            if analysis["anomaly"]
+            else "NORMAL RANGE"
+        )
+
+        panel(
+            "Model assessment",
+            status,
+            "Illustrative model output; not a safety diagnosis",
+        )
+
+    if analysis["anomaly"]:
+        st.warning(
+            "The input exceeds the model's illustrative "
+            "reconstruction-error threshold."
+        )
+    else:
+        st.success(
+            "The input is within the model's learned "
+            "reconstruction-error threshold."
+        )
+
+    st.markdown("### Input versus reconstruction")
+
+    reconstruction_df = pd.DataFrame({
+        "Feature": FEATURES,
+        "Input": telemetry,
+        "Reconstruction": analysis["reconstruction"],
+    })
+
+    reconstruction_long = reconstruction_df.melt(
+        id_vars="Feature",
+        var_name="Measurement",
+        value_name="Value",
+    )
+
+    fig = px.bar(
+        reconstruction_long,
+        x="Feature",
+        y="Value",
+        color="Measurement",
+        barmode="group",
+        title="Input telemetry vs VAE reconstruction",
+        color_discrete_sequence=[CYAN, PURPLE],
+    )
+
+    st.plotly_chart(
+        style_plot(fig, 360),
+        use_container_width=True,
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown("### Latent representation")
+
+        latent_df = pd.DataFrame({
+            "Latent dimension": ["z1", "z2"],
+            "Value": analysis["latent"],
+        })
+
+        fig = px.bar(
+            latent_df,
+            x="Latent dimension",
+            y="Value",
+            title="Encoder latent mean",
+            color="Latent dimension",
+            color_discrete_sequence=[CYAN, PURPLE],
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 300),
+            use_container_width=True,
+        )
+
+    with right:
+        st.markdown("### Training reconstruction errors")
+
+        fig = px.histogram(
+            x=train_errors,
+            nbins=35,
+            title="Synthetic normal training distribution",
+            labels={"x": "Reconstruction error"},
+            color_discrete_sequence=[BLUE],
+        )
+
+        fig.add_vline(
+            x=threshold,
+            line_dash="dash",
+            line_color=ORANGE,
+            annotation_text="Threshold",
+        )
+
+        fig.add_vline(
+            x=analysis["error"],
+            line_dash="solid",
+            line_color=RED,
+            annotation_text="Current input",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 300),
+            use_container_width=True,
+        )
+
+    st.markdown("### Telemetry summary")
+
+    st.dataframe(
+        reconstruction_df.round(4),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.info(
+        "Teaching point: a VAE learns a compressed latent representation "
+        "and reconstructs inputs. A high reconstruction error can flag "
+        "unusual inputs, but this synthetic demonstration is not a "
+        "validated anomaly detector."
+    )
+
+
+# ============================================================
+# 11. NAIVE BAYES LABORATORY
+# ============================================================
+
+elif page == "Naive Bayes Laboratory":
+
+    st.markdown("## Naive Bayes Laboratory")
+    st.caption(
+        "Text classification • Probabilities • Category prediction"
+    )
+
+    model = build_nb_model()
+
+    query = st.text_area(
+        "Enter a technical symptom or maintenance query",
+        value="The equipment is restarting unexpectedly due to unstable power.",
+        height=100,
+    )
+
+    if st.button("Classify query", type="primary"):
+        predicted, probabilities = predict_category(query)
+
+        st.markdown("### Prediction")
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            panel(
+                "Predicted category",
+                predicted.replace("_", " ").title(),
+                "Multinomial Naive Bayes",
+            )
+
+        with c2:
+            confidence = probabilities[predicted]
+
+            panel(
+                "Model probability",
+                f"{confidence:.1%}",
+                "Probability within this model's class distribution",
+            )
+
+        st.markdown("### Category probabilities")
+
+        prob_df = pd.DataFrame({
+            "Category": list(probabilities.keys()),
+            "Probability": list(probabilities.values()),
+        }).sort_values("Probability", ascending=True)
+
+        fig = px.bar(
+            prob_df,
+            x="Probability",
+            y="Category",
+            orientation="h",
+            range_x=[0, 1],
+            text=prob_df["Probability"].map(
+                lambda x: f"{x:.1%}"
+            ),
+            title="Predicted class probabilities",
+            color="Probability",
+            color_continuous_scale="Blues",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 320),
+            use_container_width=True,
+        )
+
+        st.markdown("### Retrieved documents")
+
+        results = category_rank(
+            query,
+            predicted,
+            k=3,
+        )
+
+        for rank, doc in enumerate(results, start=1):
+            with st.container(border=True):
+                st.markdown(
+                    f"**#{rank} — {doc['title']}**"
+                )
+                st.caption(
+                    f"{doc['id']} • {doc['category']}"
+                )
+                st.write(doc["text"])
+                st.write(
+                    f"Similarity: `{doc['score']:.3f}`  "
+                    f"| Adjusted score: "
+                    f"`{doc['adjusted_score']:.3f}`"
+                )
+
+    else:
+        st.markdown("### Model training data")
+
+        training_df = pd.DataFrame(
+            NB_TRAINING_DATA,
+            columns=["Example text", "Category"],
+        )
+
+        st.dataframe(
+            training_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.info(
+            "Enter a query and click Classify query to see how the "
+            "model predicts a category and how that category can "
+            "influence retrieval."
+        )
+
+    st.markdown("### How Naive Bayes works")
+
+    st.write(
+        "Naive Bayes estimates the probability of a class given the "
+        "observed words. It applies Bayes' theorem and assumes that "
+        "features are conditionally independent given the class."
+    )
+
+    st.latex(
+        r"P(C\mid x_1,\ldots,x_n)"
+        r"\propto P(C)\prod_{i=1}^{n}P(x_i\mid C)"
+    )
+
+    st.caption(
+        "This model uses a small, manually authored synthetic training "
+        "set. Its probabilities are not calibrated operational confidence."
+    )
+
+
+# ============================================================
+# 12. HMM LABORATORY
+# ============================================================
+
+elif page == "HMM Laboratory":
+
+    st.markdown("## Hidden Markov Model Laboratory")
+    st.caption(
+        "Hidden states • Observation sequences • Viterbi decoding"
+    )
+
+    st.write(
+        "Select a sequence of observable symptoms. The HMM estimates "
+        "the most likely sequence of hidden equipment states."
+    )
+
+    observation_options = HMM_OBSERVATIONS
+
+    default_sequence = [
+        "Normal temperature",
+        "Elevated temperature",
+        "High packet loss",
+        "Repeated restart",
+    ]
+
+    selected_sequence = st.multiselect(
+        "Observation sequence, in time order",
+        options=observation_options,
+        default=default_sequence,
+    )
+
+    if not selected_sequence:
+        st.warning("Select at least one observation to run Viterbi.")
+    else:
+        states, final_probs = viterbi(selected_sequence)
+
+        st.markdown("### Inferred state sequence")
+
+        state_df = pd.DataFrame({
+            "Time step": np.arange(1, len(states) + 1),
+            "Observation": selected_sequence,
+            "Inferred state": states,
+        })
+
+        st.dataframe(
+            state_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        state_colors = {
+            "Normal": GREEN,
+            "Degraded": ORANGE,
+            "Fault": RED,
+        }
+
+        fig = go.Figure()
+
+        for state_name in HMM_STATES:
+            mask = [
+                state == state_name
+                for state in states
+            ]
+
+            times = [
+                i + 1
+                for i, present in enumerate(mask)
+                if present
+            ]
+
+            if times:
+                fig.add_trace(
+                    go.Scatter(
+                        x=times,
+                        y=[state_name] * len(times),
+                        mode="markers+text",
+                        text=[state_name] * len(times),
+                        textposition="top center",
+                        marker=dict(
+                            size=17,
+                            color=state_colors[state_name],
+                        ),
+                        name=state_name,
+                    )
+                )
+
+        fig.update_layout(
+            title="Most likely hidden state over time",
+            xaxis_title="Observation time step",
+            yaxis_title="Inferred state",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 330),
+            use_container_width=True,
+        )
+
+        st.markdown("### Final-step state probabilities")
+
+        prob_df = pd.DataFrame({
+            "State": list(final_probs.keys()),
+            "Probability": list(final_probs.values()),
+        })
+
+        fig = px.bar(
+            prob_df,
+            x="State",
+            y="Probability",
+            range_y=[0, 1],
+            text=prob_df["Probability"].map(
+                lambda x: f"{x:.1%}"
+            ),
+            color="State",
+            color_discrete_map={
+                "Normal": GREEN,
+                "Degraded": ORANGE,
+                "Fault": RED,
+            },
+            title="Normalized final-state scores",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 300),
+            use_container_width=True,
+        )
+
+        st.markdown("### HMM transition matrix")
+
+        transition_df = pd.DataFrame(
+            HMM_TRANSITION,
+            index=HMM_STATES,
+            columns=HMM_STATES,
+        )
+
+        st.dataframe(
+            transition_df.style.format("{:.2f}"),
+            use_container_width=True,
+        )
+
+        st.markdown("### HMM emission matrix")
+
+        emission_df = pd.DataFrame(
+            HMM_EMISSION,
+            index=HMM_STATES,
+            columns=HMM_OBSERVATIONS,
+        )
+
+        st.dataframe(
+            emission_df.style.format("{:.2f}"),
+            use_container_width=True,
+        )
+
+    st.info(
+        "Teaching point: the Viterbi algorithm finds the most likely "
+        "hidden-state sequence given the observations and the model "
+        "parameters. These transition and emission probabilities are "
+        "illustrative, not learned from real equipment histories."
+    )
+
+
+# ============================================================
+# 13. AGENTIC RAG
+# ============================================================
+
+elif page == "Agentic RAG":
+
+    st.markdown("## Agentic RAG")
+    st.caption(
+        "Query understanding • Retrieval • Category-aware reranking"
+    )
+
+    query = st.text_area(
+        "Ask a technical question",
+        value="The equipment is restarting unexpectedly. What should I investigate?",
+        height=100,
+    )
+
+    k = st.slider(
+        "Number of documents to retrieve",
+        min_value=1,
+        max_value=min(6, len(DOCUMENTS)),
+        value=min(3, len(DOCUMENTS)),
+    )
+
+    method = st.radio(
+        "Retrieval strategy",
+        [
+            "Baseline TF-IDF",
+            "Naive Bayes category-aware",
+        ],
+        horizontal=True,
+    )
+
+    if st.button("Run retrieval", type="primary"):
+        predicted_category, probabilities = predict_category(query)
+
+        st.markdown("### Query analysis")
+
+        st.write(
+            f"**Predicted category:** "
+            f"`{predicted_category}`"
+        )
+
+        if method == "Baseline TF-IDF":
+            results = retrieve(query, k=k)
+        else:
+            results = category_rank(
+                query,
+                predicted_category,
+                k=k,
+            )
+
+        st.markdown("### Retrieved evidence")
+
+        for rank, doc in enumerate(results, start=1):
+            with st.container(border=True):
+                top_col, score_col = st.columns([4, 1])
+
+                with top_col:
+                    st.markdown(
+                        f"### {rank}. {doc['title']}"
+                    )
+                    st.caption(
+                        f"Source: {doc['id']}  •  "
+                        f"Category: {doc['category']}"
+                    )
+
+                with score_col:
+                    score = doc.get(
+                        "adjusted_score",
+                        doc["score"],
+                    )
+                    st.metric("Score", f"{score:.3f}")
+
+                st.write(doc["text"])
+
+        with st.expander("View classifier probabilities"):
+            probability_df = pd.DataFrame({
+                "Category": list(probabilities.keys()),
+                "Probability": list(probabilities.values()),
+            }).sort_values("Probability", ascending=False)
+
+            st.dataframe(
+                probability_df,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        st.markdown("### Retrieval score comparison")
+
+        if method == "Naive Bayes category-aware":
+            score_key = "adjusted_score"
+            chart_title = "Category-adjusted retrieval scores"
+        else:
+            score_key = "score"
+            chart_title = "Baseline TF-IDF similarity scores"
+
+        score_df = pd.DataFrame([
+            {
+                "Document": doc["id"],
+                "Title": doc["title"],
+                "Score": doc[score_key],
+            }
+            for doc in results
+        ])
+
+        fig = px.bar(
+            score_df,
+            x="Document",
+            y="Score",
+            hover_name="Title",
+            title=chart_title,
+            color="Score",
+            color_continuous_scale="Teal",
+        )
+
+        st.plotly_chart(
+            style_plot(fig, 320),
+            use_container_width=True,
+        )
+
+    st.markdown("### Current prototype architecture")
+
+    st.graphviz_chart(
+        """
+        digraph RAG {
+            rankdir=LR;
+            bgcolor="transparent";
+            node [
+                shape=box,
+                style="rounded,filled",
+                fillcolor="#111827",
+                color="#22D3EE",
+                fontcolor="white",
+                fontname="Arial"
+            ];
+            edge [
+                color="#64748B",
+                fontcolor="white",
+                fontname="Arial"
+            ];
+
+            Q [label="User Query"];
+            C [label="Naive Bayes\\nCategory"];
+            R [label="TF-IDF\\nRetrieval"];
+            RR [label="Category-aware\\nReranking"];
+            D [label="Retrieved\\nDocuments"];
+
+            Q -> R;
+            Q -> C;
+            R -> RR;
+            C -> RR;
+            RR -> D;
+        }
+        """
+    )
+
+    st.info(
+        "This is a retrieval prototype, not a complete autonomous "
+        "agent or a production generative-answer system. It retrieves "
+        "evidence from synthetic documents but does not call an LLM "
+        "to generate a grounded answer."
+    )
+
+
+# ============================================================
+# 14. RAG EVALUATION LAB
+# ============================================================
+
+elif page == "RAG Evaluation Lab":
+
+    st.markdown("## RAG Evaluation Laboratory")
+    st.caption(
+        "Ground-truth evaluation • Recall@3 • MRR • "
+        "Ranking changes and failure analysis"
+    )
+
+    st.markdown(
+        """
+        This experiment compares two retrieval strategies over a fixed
+        set of labelled synthetic technical questions:
+
+        - **Baseline RAG:** TF-IDF similarity only.
+        - **Category-aware RAG:** Naive Bayes predicts a category, and
+          matching documents receive a ranking bonus.
+        """
+    )
+
+    st.warning(
+        "The relevance labels are manually assigned teaching labels. "
+        "Review them if a question has more than one valid answer."
+    )
+
+    # Evaluation controls
+    bonus = st.slider(
+        "Category ranking bonus",
+        min_value=0.0,
+        max_value=0.5,
+        value=0.15,
+        step=0.05,
+        help=(
+            "This value is added to the TF-IDF similarity score "
+            "for documents in the predicted category."
+        ),
+    )
+
+    def evaluate_with_bonus(bonus_value):
+        metric_rows = []
+        detail_rows = []
+
+        for item in EVALUATION_SET:
+            query = item["question"]
+            relevant_ids = item["relevant"]
+
+            baseline = retrieve(query, k=3)
+
+            predicted_category, probabilities = predict_category(
+                query
+            )
+
+            category_results = category_rank(
+                query,
+                predicted_category,
+                k=3,
+                bonus=bonus_value,
+            )
+
+            base_recall, base_rr = evaluate_retrieval(
+                baseline,
+                relevant_ids,
+            )
+
+            cat_recall, cat_rr = evaluate_retrieval(
+                category_results,
+                relevant_ids,
+            )
+
+            baseline_ids = [
+                doc["id"] for doc in baseline
+            ]
+
+            category_ids = [
+                doc["id"] for doc in category_results
+            ]
+
+            metric_rows.append({
+                "Question": query,
+                "Baseline Recall@3": base_recall,
+                "Category Recall@3": cat_recall,
+                "Baseline RR": base_rr,
+                "Category RR": cat_rr,
+            })
+
+            detail_rows.append({
+                "Question": query,
+                "Relevant IDs": ", ".join(relevant_ids),
+                "NB predicted category": predicted_category,
+                "Baseline ranking": " → ".join(baseline_ids),
+                "Category-aware ranking": " → ".join(category_ids),
+                "Ranking changed": baseline_ids != category_ids,
+                "Baseline hit": bool(
+                    set(baseline_ids) & set(relevant_ids)
+                ),
+                "Category-aware hit": bool(
+                    set(category_ids) & set(relevant_ids)
+                ),
+            })
+
+        return (
+            pd.DataFrame(metric_rows),
+            pd.DataFrame(detail_rows),
+        )
+
+    metrics_df, details_df = evaluate_with_bonus(bonus)
+
+    # Overall metrics
+    baseline_recall = metrics_df[
+        "Baseline Recall@3"
+    ].mean()
+
+    category_recall = metrics_df[
+        "Category Recall@3"
+    ].mean()
+
+    baseline_mrr = metrics_df["Baseline RR"].mean()
+    category_mrr = metrics_df["Category RR"].mean()
+
+    st.markdown("### Overall performance")
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Baseline Recall@3",
+        f"{baseline_recall:.1%}",
+    )
+
+    c2.metric(
+        "Category Recall@3",
+        f"{category_recall:.1%}",
+        delta=f"{category_recall - baseline_recall:+.1%}",
+    )
+
+    c3.metric(
+        "Baseline MRR",
+        f"{baseline_mrr:.3f}",
+    )
+
+    c4.metric(
+        "Category MRR",
+        f"{category_mrr:.3f}",
+        delta=f"{category_mrr - baseline_mrr:+.3f}",
+    )
+
+    st.markdown("### Metric comparison")
+
+    chart_df = pd.DataFrame({
+        "Metric": ["Recall@3", "MRR"],
+        "Baseline RAG": [
+            baseline_recall,
+            baseline_mrr,
+        ],
+        "Category-aware RAG": [
+            category_recall,
+            category_mrr,
+        ],
+    }).melt(
+        id_vars="Metric",
+        var_name="System",
+        value_name="Score",
+    )
+
+    fig = px.bar(
+        chart_df,
+        x="Metric",
+        y="Score",
+        color="System",
+        barmode="group",
+        range_y=[0, 1],
+        text_auto=".2f",
+        title="Baseline vs Category-aware Retrieval",
+        color_discrete_sequence=[BLUE, CYAN],
+    )
+
+    st.plotly_chart(
+        style_plot(fig, 370),
+        use_container_width=True,
+    )
+
+    st.markdown("### Question-level performance")
+
+    question_chart_df = metrics_df.melt(
+        id_vars="Question",
+        value_vars=[
+            "Baseline Recall@3",
+            "Category Recall@3",
+        ],
+        var_name="System",
+        value_name="Recall",
+    )
+
+    fig = px.bar(
+        question_chart_df,
+        x="Recall",
+        y="Question",
+        color="System",
+        barmode="group",
+        orientation="h",
+        range_x=[0, 1],
+        title="Recall@3 for each evaluation question",
+        color_discrete_sequence=[BLUE, CYAN],
+    )
+
+    st.plotly_chart(
+        style_plot(fig, 470),
+        use_container_width=True,
+    )
+
+    st.markdown("### Ranking changes and failure analysis")
+
+    st.dataframe(
+        details_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    with st.expander("View question-level metric details"):
+        st.dataframe(
+            metrics_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    changed_count = int(
+        details_df["Ranking changed"].sum()
+    )
+
+    improved_count = int(
+        (
+            details_df["Category-aware hit"]
+            & ~details_df["Baseline hit"]
+        ).sum()
+    )
+
+    regressed_count = int(
+        (
+            details_df["Baseline hit"]
+            & ~details_df["Category-aware hit"]
+        ).sum()
+    )
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Rankings changed",
+        f"{changed_count}/{len(EVALUATION_SET)}",
+    )
+
+    c2.metric(
+        "New successful hits",
+        improved_count,
+    )
+
+    c3.metric(
+        "Lost successful hits",
+        regressed_count,
+    )
+
+    st.markdown("### Inspect one evaluation question")
+
+    selected_question = st.selectbox(
+        "Choose a question",
+        options=[
+            item["question"]
+            for item in EVALUATION_SET
+        ],
+    )
+
+    selected_item = next(
+        item
+        for item in EVALUATION_SET
+        if item["question"] == selected_question
+    )
+
+    selected_relevant = selected_item["relevant"]
+
+    baseline_selected = retrieve(
+        selected_question,
+        k=3,
+    )
+
+    selected_category, selected_probs = predict_category(
+        selected_question
+    )
+
+    category_selected = category_rank(
+        selected_question,
+        selected_category,
+        k=3,
+        bonus=bonus,
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown("#### Baseline results")
+
+        for rank, doc in enumerate(
+            baseline_selected,
+            start=1,
+        ):
+            is_relevant = doc["id"] in selected_relevant
+
+            if is_relevant:
+                st.success(
+                    f"#{rank} {doc['id']} — {doc['title']} "
+                    f"(relevant)"
+                )
+            else:
+                st.write(
+                    f"#{rank} {doc['id']} — {doc['title']}"
+                )
+
+            st.caption(
+                f"TF-IDF score: {doc['score']:.3f}"
+            )
+
+    with right:
+        st.markdown("#### Category-aware results")
+
+        st.caption(
+            f"Naive Bayes category: {selected_category}"
+        )
+
+        for rank, doc in enumerate(
+            category_selected,
+            start=1,
+        ):
+            is_relevant = doc["id"] in selected_relevant
+
+            if is_relevant:
+                st.success(
+                    f"#{rank} {doc['id']} — {doc['title']} "
+                    f"(relevant)"
+                )
+            else:
+                st.write(
+                    f"#{rank} {doc['id']} — {doc['title']}"
+                )
+
+            st.caption(
+                f"Similarity: {doc['score']:.3f} • "
+                f"Adjusted: {doc['adjusted_score']:.3f}"
+            )
+
+    st.markdown("### Ground-truth labels")
+
+    ground_truth_df = pd.DataFrame([
+        {
+            "Question": item["question"],
+            "Relevant document IDs": ", ".join(
+                item["relevant"]
+            ),
+        }
+        for item in EVALUATION_SET
+    ])
+
+    st.dataframe(
+        ground_truth_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.info(
+        "Interpretation: Recall@3 measures the fraction of labelled "
+        "relevant documents found in the top three. MRR rewards finding "
+        "the first relevant result near the top. A ranking change is not "
+        "automatically an improvement; use the relevance labels to judge it."
+    )
+
+    st.caption(
+        "Scope: six synthetic documents and six manually labelled "
+        "questions. This is an educational experiment, not a statistically "
+        "robust benchmark. Results depend on the labels, training examples, "
+        "similarity scores, and category bonus."
+    )
+
+
+# ============================================================
+# 15. FOOTER
+# ============================================================
+
+st.divider()
+
+st.markdown(
+    f"""
+    <div style="text-align: center; padding: 12px 0 5px 0;">
+        <div style="font-size: 12px; color: {MUTED};">
+            TECHNICAL AI MODEL LABORATORY
+        </div>
+        <div style="font-size: 11px; color: #64748B;
+                    margin-top: 5px;">
+            VAE • Naive Bayes • HMM • RAG • Evaluation
+        </div>
+    </div>
+    """,
     unsafe_allow_html=True,
 )
