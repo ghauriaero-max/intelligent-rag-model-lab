@@ -928,59 +928,82 @@ st.markdown(
 
 
 # ============================================================
-# 10. VAE LABORATORY
+
+# ============================================================
+# 10. VAE LABORATORY — REDESIGNED DASHBOARD
 # ============================================================
 
 if page == "VAE Laboratory":
 
     st.markdown("## VAE Laboratory")
     st.caption(
-        "Variational Autoencoder • Telemetry reconstruction • "
-        "Anomaly detection"
+        "VARIATIONAL AUTOENCODER  /  TELEMETRY RECONSTRUCTION  /  "
+        "ANOMALY DETECTION"
     )
 
+    # Keep the existing model and analysis functions unchanged.
     model, scaler, normal_data, threshold, train_errors = train_vae()
 
-    st.markdown("### Live telemetry input")
+    # --------------------------------------------------------
+    # Live telemetry controls
+    # --------------------------------------------------------
+    st.markdown("### LIVE TELEMETRY INPUT")
 
-    c1, c2, c3, c4 = st.columns(4)
+    control_col, gauge_col = st.columns([1.05, 1.5], gap="large")
 
-    with c1:
-        temperature = st.slider(
-            "Temperature",
-            min_value=20.0,
-            max_value=120.0,
-            value=55.0,
-            step=1.0,
-            help="Synthetic equipment temperature.",
-        )
+    with control_col:
+        with st.container(border=True):
+            st.markdown("#### Telemetry controls")
+            st.caption("Adjust synthetic equipment readings.")
 
-    with c2:
-        vibration = st.slider(
-            "Vibration",
-            min_value=0.0,
-            max_value=5.0,
-            value=1.0,
-            step=0.1,
-        )
+            temperature = st.slider(
+                "Temperature (°C)",
+                min_value=20.0,
+                max_value=120.0,
+                value=55.0,
+                step=1.0,
+                key="temp",
+            )
 
-    with c3:
-        voltage = st.slider(
-            "Voltage",
-            min_value=15.0,
-            max_value=40.0,
-            value=28.0,
-            step=0.5,
-        )
+            vibration = st.slider(
+                "Vibration",
+                min_value=0.0,
+                max_value=5.0,
+                value=1.0,
+                step=0.1,
+                key="vib",
+            )
 
-    with c4:
-        packet_loss = st.slider(
-            "Packet loss",
-            min_value=0.0,
-            max_value=10.0,
-            value=0.6,
-            step=0.1,
-        )
+            voltage = st.slider(
+                "Voltage (V)",
+                min_value=15.0,
+                max_value=40.0,
+                value=28.0,
+                step=0.5,
+                key="volt",
+            )
+
+            packet_loss = st.slider(
+                "Packet loss (%)",
+                min_value=0.0,
+                max_value=10.0,
+                value=0.6,
+                step=0.1,
+                key="packet",
+            )
+
+            def reset_telemetry():
+                st.session_state.temp = 55.0
+                st.session_state.vib = 1.0
+                st.session_state.volt = 28.0
+                st.session_state.packet = 0.6
+
+            st.button(
+                "↻ Reset to Normal Values",
+                key="reset_telemetry_button",
+                on_click=reset_telemetry,
+                width="stretch",
+            )
 
     telemetry = [
         temperature,
@@ -989,49 +1012,167 @@ if page == "VAE Laboratory":
         packet_loss,
     ]
 
+    # Existing model inference.
     analysis = analyze_telemetry(telemetry)
 
-    metric1, metric2, metric3 = st.columns(3)
+    error = analysis["error"]
+    threshold_value = analysis["threshold"]
+    is_anomaly = analysis["anomaly"]
 
-    with metric1:
-        panel(
+    # --------------------------------------------------------
+    # Reconstruction error gauge
+    # --------------------------------------------------------
+    with gauge_col:
+        with st.container(border=True):
+            st.markdown("#### Reconstruction error")
+
+            status_color = "#FB7185" if is_anomaly else "#34D399"
+            status_text = (
+                "ANOMALY DETECTED"
+                if is_anomaly
+                else "NORMAL RANGE"
+            )
+
+            fig_gauge = go.Figure(
+                go.Indicator(
+                    mode="gauge+number",
+                    value=error,
+                    number={
+                        "valueformat": ".4f",
+                        "font": {
+                            "size": 36,
+                            "color": "#E5E7EB",
+                        },
+                    },
+                    title={
+                        "text": "Reconstruction error",
+                        "font": {
+                            "size": 14,
+                            "color": "#94A3B8",
+                        },
+                    },
+                    gauge={
+                        "axis": {
+                            "range": [
+                                0,
+                                max(
+                                    threshold_value * 2,
+                                    error * 1.2,
+                                    0.01,
+                                ),
+                            ],
+                            "tickcolor": "#94A3B8",
+                        },
+                        "bar": {"color": status_color},
+                        "bgcolor": "#111827",
+                        "bordercolor": "#263449",
+                        "steps": [
+                            {
+                                "range": [
+                                    0,
+                                    threshold_value,
+                                ],
+                                "color": "#12352F",
+                            },
+                            {
+                                "range": [
+                                    threshold_value,
+                                    max(
+                                        threshold_value * 2,
+                                        error * 1.2,
+                                        0.01,
+                                    ),
+                                ],
+                                "color": "#3A202B",
+                            },
+                        ],
+                        "threshold": {
+                            "line": {
+                                "color": "#FBBF24",
+                                "width": 4,
+                            },
+                            "thickness": 0.8,
+                            "value": threshold_value,
+                        },
+                    },
+                )
+            )
+
+            fig_gauge.update_layout(
+                height=275,
+                paper_bgcolor="rgba(0,0,0,0)",
+                font={"color": "#E5E7EB"},
+                margin={"l": 25, "r": 25, "t": 55, "b": 15},
+            )
+
+            st.plotly_chart(
+                fig_gauge,
+                width="stretch",
+                config={"displayModeBar": False},
+            )
+
+            st.markdown(
+                f"""
+                <div style="
+                    text-align:center;
+                    padding:10px;
+                    border:1px solid {status_color};
+                    border-radius:10px;
+                    color:{status_color};
+                    font-weight:800;
+                    letter-spacing:1px;
+                ">
+                    {status_text}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.caption(
+                f"Training threshold: {threshold_value:.4f} "
+                "(95th percentile of synthetic training errors)"
+            )
+
+    # --------------------------------------------------------
+    # Summary metrics
+    # --------------------------------------------------------
+    st.markdown("### MODEL SUMMARY")
+
+    m1, m2, m3 = st.columns(3)
+
+    with m1:
+        st.metric(
             "Reconstruction error",
-            f"{analysis['error']:.4f}",
-            "Mean squared error in standardized feature space",
+            f"{error:.4f}",
         )
 
-    with metric2:
-        panel(
+    with m2:
+        st.metric(
             "Training threshold",
-            f"{analysis['threshold']:.4f}",
-            "95th percentile of synthetic training errors",
+            f"{threshold_value:.4f}",
         )
 
-    with metric3:
-        status = (
-            "ANOMALY DETECTED"
-            if analysis["anomaly"]
-            else "NORMAL RANGE"
+    with m3:
+        st.metric(
+            "Assessment",
+            "Anomaly" if is_anomaly else "Normal",
         )
 
-        panel(
-            "Model assessment",
-            status,
-            "Illustrative model output; not a safety diagnosis",
-        )
-
-    if analysis["anomaly"]:
+    if is_anomaly:
         st.warning(
-            "The input exceeds the model's illustrative "
-            "reconstruction-error threshold."
+            "The input exceeds the illustrative reconstruction-error "
+            "threshold."
         )
     else:
         st.success(
-            "The input is within the model's learned "
-            "reconstruction-error threshold."
+            "The input is within the illustrative reconstruction-error "
+            "threshold."
         )
 
-    st.markdown("### Input versus reconstruction")
+    # --------------------------------------------------------
+    # Input versus reconstruction
+    # --------------------------------------------------------
+    st.markdown("### INPUT VS RECONSTRUCTION")
 
     reconstruction_df = pd.DataFrame({
         "Feature": FEATURES,
@@ -1045,88 +1186,107 @@ if page == "VAE Laboratory":
         value_name="Value",
     )
 
-    fig = px.bar(
-        reconstruction_long,
-        x="Feature",
-        y="Value",
-        color="Measurement",
-        barmode="group",
-        title="Input telemetry vs VAE reconstruction",
-        color_discrete_sequence=[CYAN, PURPLE],
-    )
-
-    st.plotly_chart(
-        style_plot(fig, 360),
-        use_container_width=True,
-    )
-
-    left, right = st.columns(2)
+    left, right = st.columns([1.6, 1], gap="large")
 
     with left:
-        st.markdown("### Latent representation")
+        with st.container(border=True):
+            fig_reconstruction = px.bar(
+                reconstruction_long,
+                x="Feature",
+                y="Value",
+                color="Measurement",
+                barmode="group",
+                title="Telemetry compared with VAE output",
+                color_discrete_map={
+                    "Input": "#22D3EE",
+                    "Reconstruction": "#A78BFA",
+                },
+            )
 
-        latent_df = pd.DataFrame({
-            "Latent dimension": ["z1", "z2"],
-            "Value": analysis["latent"],
-        })
-
-        fig = px.bar(
-            latent_df,
-            x="Latent dimension",
-            y="Value",
-            title="Encoder latent mean",
-            color="Latent dimension",
-            color_discrete_sequence=[CYAN, PURPLE],
-        )
-
-        st.plotly_chart(
-            style_plot(fig, 300),
-            use_container_width=True,
-        )
+            st.plotly_chart(
+                style_plot(fig_reconstruction, 360),
+                width="stretch",
+            )
 
     with right:
-        st.markdown("### Training reconstruction errors")
+        with st.container(border=True):
+            st.markdown("#### Telemetry summary")
 
-        fig = px.histogram(
-            x=train_errors,
-            nbins=35,
-            title="Synthetic normal training distribution",
-            labels={"x": "Reconstruction error"},
-            color_discrete_sequence=[BLUE],
-        )
+            st.dataframe(
+                reconstruction_df.round(4),
+                width="stretch",
+                hide_index=True,
+            )
 
-        fig.add_vline(
-            x=threshold,
-            line_dash="dash",
-            line_color=ORANGE,
-            annotation_text="Threshold",
-        )
+    # --------------------------------------------------------
+    # Latent representation and training errors
+    # --------------------------------------------------------
+    st.markdown("### MODEL DIAGNOSTICS")
 
-        fig.add_vline(
-            x=analysis["error"],
-            line_dash="solid",
-            line_color=RED,
-            annotation_text="Current input",
-        )
+    latent_col, error_col = st.columns(2, gap="large")
 
-        st.plotly_chart(
-            style_plot(fig, 300),
-            use_container_width=True,
-        )
+    with latent_col:
+        with st.container(border=True):
+            st.markdown("#### Latent representation")
 
-    st.markdown("### Telemetry summary")
+            latent_df = pd.DataFrame({
+                "Latent dimension": ["z1", "z2"],
+                "Value": analysis["latent"],
+            })
 
-    st.dataframe(
-        reconstruction_df.round(4),
-        use_container_width=True,
-        hide_index=True,
-    )
+            fig_latent = px.bar(
+                latent_df,
+                x="Latent dimension",
+                y="Value",
+                color="Latent dimension",
+                title="Encoder latent mean",
+                color_discrete_map={
+                    "z1": "#22D3EE",
+                    "z2": "#A78BFA",
+                },
+            )
+
+            st.plotly_chart(
+                style_plot(fig_latent, 310),
+                width="stretch",
+            )
+
+    with error_col:
+        with st.container(border=True):
+            st.markdown("#### Training reconstruction errors")
+
+            fig_errors = px.histogram(
+                x=train_errors,
+                nbins=35,
+                title="Synthetic normal training distribution",
+                labels={"x": "Reconstruction error"},
+                color_discrete_sequence=["#60A5FA"],
+            )
+
+            fig_errors.add_vline(
+                x=threshold_value,
+                line_dash="dash",
+                line_color="#FBBF24",
+                annotation_text="Threshold",
+            )
+
+            fig_errors.add_vline(
+                x=error,
+                line_dash="solid",
+                line_color="#FB7185",
+                annotation_text="Current input",
+            )
+
+            st.plotly_chart(
+                style_plot(fig_errors, 310),
+                width="stretch",
+            )
 
     st.info(
-        "Teaching point: a VAE learns a compressed latent representation "
-        "and reconstructs inputs. A high reconstruction error can flag "
-        "unusual inputs, but this synthetic demonstration is not a "
-        "validated anomaly detector."
+        "Educational demonstration using synthetic telemetry. "
+        "A reconstruction error above the learned threshold indicates "
+        "an unusual input under this model; it is not a validated "
+        "equipment-safety diagnosis."
     )
 
 
