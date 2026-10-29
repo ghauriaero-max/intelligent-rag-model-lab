@@ -1017,8 +1017,58 @@ def run_evaluation():
 
 
 # ============================================================
-# 8. SIDEBAR NAVIGATION
+# 8. LOGO, NAVIGATION STATE AND COMPACT LAYOUT
 # ============================================================
+
+from PIL import Image, ImageDraw
+
+LOGO_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "m2_ai_logo.png",
+)
+
+
+@st.cache_data(show_spinner=False)
+def load_logo(path, modified_time):
+    """Return the logo with its white background made transparent."""
+    img = Image.open(path).convert("RGBA")
+    img.thumbnail((480, 480))
+
+    # Keep the file as it is if it already has real transparency.
+    if img.getchannel("A").getextrema()[0] < 250:
+        return img
+
+    width, height = img.size
+    corners = [
+        (0, 0),
+        (width - 1, 0),
+        (0, height - 1),
+        (width - 1, height - 1),
+    ]
+
+    # Flood-fill only the background that touches the image corners, so
+    # white areas inside the logo itself are preserved.
+    for corner in corners:
+        r, g, b, _ = img.getpixel(corner)
+        if r > 225 and g > 225 and b > 225:
+            ImageDraw.floodfill(
+                img,
+                corner,
+                (255, 255, 255, 0),
+                thresh=60,
+            )
+
+    return img
+
+
+def get_logo():
+    if not os.path.exists(LOGO_PATH):
+        return None
+    try:
+        return load_logo(LOGO_PATH, os.path.getmtime(LOGO_PATH))
+    except Exception:
+        return None
+
 
 NAV_ICONS = {
     "VAE Laboratory": "🧬",
@@ -1027,6 +1077,8 @@ NAV_ICONS = {
     "Agentic RAG": "🔎",
     "RAG Evaluation Lab": "🧪",
 }
+
+PAGES = list(NAV_ICONS.keys())
 
 PAGE_BLURBS = {
     "VAE Laboratory": (
@@ -1051,10 +1103,141 @@ PAGE_BLURBS = {
     ),
 }
 
-LOGO_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "m2_ai_logo.png",
+
+def nav_label(page_name):
+    return f"{NAV_ICONS[page_name]}  {page_name}"
+
+
+# The sidebar menu and the top tabs share one page state.
+if "page" not in st.session_state:
+    st.session_state.page = PAGES[0]
+if "nav_side" not in st.session_state:
+    st.session_state.nav_side = st.session_state.page
+if "nav_top" not in st.session_state:
+    st.session_state.nav_top = st.session_state.page
+
+
+def sync_from_sidebar():
+    st.session_state.page = st.session_state.nav_side
+    st.session_state.nav_top = st.session_state.nav_side
+
+
+def sync_from_top():
+    choice = st.session_state.nav_top
+    if choice is None:
+        # Clicking the active tab again must not leave the app pageless.
+        st.session_state.nav_top = st.session_state.page
+    else:
+        st.session_state.page = choice
+        st.session_state.nav_side = choice
+
+
+# Compact layout and top-tab styling (overrides the theme CSS above).
+st.markdown(
+    f"""
+    <style>
+    .block-container {{
+        padding-top: 2.4rem;
+        padding-bottom: 1rem;
+    }}
+
+    div[data-testid="stVerticalBlock"] {{ gap: 0.7rem; }}
+
+    .hero {{
+        padding: 12px 20px;
+        margin-bottom: 0;
+        border-radius: 14px;
+    }}
+
+    .hero-row {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+    }}
+
+    .hero-title {{
+        font-size: 24px;
+        margin: 0;
+    }}
+
+    .hero-subtitle {{
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 55%;
+        text-align: right;
+    }}
+
+    h3 {{
+        font-size: 1rem !important;
+        margin-top: 0.3rem !important;
+        margin-bottom: 0.1rem !important;
+    }}
+
+    h4 {{
+        margin: 0 0 0.2rem 0 !important;
+        font-size: 0.95rem !important;
+    }}
+
+    .panel {{
+        padding: 12px 16px;
+        margin-bottom: 0;
+    }}
+
+    .panel-value {{
+        font-size: 22px;
+        margin-top: 4px;
+    }}
+
+    div[data-testid="stMetric"] {{ padding: 8px 12px; }}
+    div[data-testid="stMetricValue"] {{ font-size: 1.35rem; }}
+
+    /* ---------- Top navigation tabs ---------- */
+    div[data-testid="stButtonGroup"] {{
+        width: 100%;
+        gap: 6px;
+        flex-wrap: nowrap;
+        border-bottom: 1px solid {BORDER};
+    }}
+
+    button[data-testid="stBaseButton-segmented_control"],
+    button[data-testid="stBaseButton-segmented_controlActive"] {{
+        flex: 1 1 0;
+        justify-content: center;
+        padding: 8px 14px;
+        border-radius: 10px 10px 0 0 !important;
+        border: 1px solid {BORDER} !important;
+        border-bottom: 3px solid transparent !important;
+        background: #FFFFFF !important;
+        font-weight: 700;
+    }}
+
+    button[data-testid="stBaseButton-segmented_control"] p {{
+        color: {MUTED} !important;
+    }}
+
+    button[data-testid="stBaseButton-segmented_control"]:hover {{
+        background: rgba(8, 145, 178, 0.07) !important;
+    }}
+
+    button[data-testid="stBaseButton-segmented_controlActive"] {{
+        background: linear-gradient(180deg,
+            rgba(8, 145, 178, 0.14), #FFFFFF) !important;
+        border-bottom: 3px solid {CYAN} !important;
+    }}
+
+    button[data-testid="stBaseButton-segmented_controlActive"] p {{
+        color: {CYAN} !important;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
+
+
+# ============================================================
+# 9. SIDEBAR AND COMMON HEADER
+# ============================================================
 
 with st.sidebar:
     st.markdown(
@@ -1077,10 +1260,12 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    page = st.radio(
+    st.radio(
         "Select laboratory",
-        list(NAV_ICONS.keys()),
-        format_func=lambda p: f"{NAV_ICONS[p]}   {p}",
+        PAGES,
+        format_func=nav_label,
+        key="nav_side",
+        on_change=sync_from_sidebar,
         label_visibility="collapsed",
     )
 
@@ -1107,20 +1292,18 @@ with st.sidebar:
     st.caption("Technical AI Model Laboratory")
     st.caption("Educational prototype • Synthetic data only")
 
+page = st.session_state.page
 
-# ============================================================
-# 9. COMMON PAGE HEADER (LOGO + HERO BANNER)
-# ============================================================
-
-logo_col, hero_col = st.columns([1, 8], vertical_alignment="center")
+logo_col, hero_col = st.columns([1, 14], vertical_alignment="center")
 
 with logo_col:
-    if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, width=96)
+    logo_image = get_logo()
+    if logo_image is not None:
+        st.image(logo_image, width=64)
     else:
         st.markdown(
             f"""
-            <div style="font-size: 34px; font-weight: 900;
+            <div style="font-size: 30px; font-weight: 900;
                         color: {CYAN}; text-align: center;">
                 M²
             </div>
@@ -1132,84 +1315,92 @@ with hero_col:
     st.markdown(
         f"""
         <div class="hero">
-            <div class="eyebrow">
-                M² AI · INTELLIGENT SYSTEMS · EXPERIMENTAL LAB
+            <div class="hero-row">
+                <div>
+                    <div class="eyebrow">
+                        M² AI · TECHNICAL AI MODEL LABORATORY
+                    </div>
+                    <div class="hero-title">
+                        {NAV_ICONS[page]} {page}
+                    </div>
+                </div>
+                <div class="hero-subtitle">{PAGE_BLURBS[page]}</div>
             </div>
-            <div class="hero-title">Technical AI Model Laboratory</div>
-            <div class="hero-subtitle">
-                {PAGE_BLURBS[page]}
-            </div>
-            <span class="chip">
-                {NAV_ICONS[page]} &nbsp;{page}
-            </span>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+st.segmented_control(
+    "Navigation",
+    PAGES,
+    format_func=nav_label,
+    selection_mode="single",
+    key="nav_top",
+    on_change=sync_from_top,
+    label_visibility="collapsed",
+)
+
 
 # ============================================================
-# 10. VAE LABORATORY — REDESIGNED DASHBOARD
+# 10. VAE LABORATORY
 # ============================================================
 
 if page == "VAE Laboratory":
 
-    st.markdown("## VAE Laboratory")
-    st.caption(
-        "VARIATIONAL AUTOENCODER  /  TELEMETRY RECONSTRUCTION  /  "
-        "ANOMALY DETECTION"
-    )
-
-    # Keep the existing model and analysis functions unchanged.
     model, scaler, normal_data, threshold, train_errors = train_vae()
+
+    control_col, gauge_col, summary_col = st.columns(
+        [1.15, 1.2, 1.05],
+        gap="medium",
+    )
 
     # --------------------------------------------------------
     # Live telemetry controls
     # --------------------------------------------------------
-    st.markdown("### LIVE TELEMETRY INPUT")
-
-    control_col, gauge_col = st.columns([1.05, 1.5], gap="large")
-
     with control_col:
         with st.container(border=True):
-            st.markdown("#### Telemetry controls")
-            st.caption("Adjust synthetic equipment readings.")
+            st.markdown("#### Live telemetry input")
 
-            temperature = st.slider(
-                "Temperature (°C)",
-                min_value=20.0,
-                max_value=120.0,
-                value=55.0,
-                step=1.0,
-                key="temp",
-            )
+            slider_left, slider_right = st.columns(2)
 
-            vibration = st.slider(
-                "Vibration",
-                min_value=0.0,
-                max_value=5.0,
-                value=1.0,
-                step=0.1,
-                key="vib",
-            )
+            with slider_left:
+                temperature = st.slider(
+                    "Temperature (°C)",
+                    min_value=20.0,
+                    max_value=120.0,
+                    value=55.0,
+                    step=1.0,
+                    key="temp",
+                )
 
-            voltage = st.slider(
-                "Voltage (V)",
-                min_value=15.0,
-                max_value=40.0,
-                value=28.0,
-                step=0.5,
-                key="volt",
-            )
+                vibration = st.slider(
+                    "Vibration",
+                    min_value=0.0,
+                    max_value=5.0,
+                    value=1.0,
+                    step=0.1,
+                    key="vib",
+                )
 
-            packet_loss = st.slider(
-                "Packet loss (%)",
-                min_value=0.0,
-                max_value=10.0,
-                value=0.6,
-                step=0.1,
-                key="packet",
-            )
+            with slider_right:
+                voltage = st.slider(
+                    "Voltage (V)",
+                    min_value=15.0,
+                    max_value=40.0,
+                    value=28.0,
+                    step=0.5,
+                    key="volt",
+                )
+
+                packet_loss = st.slider(
+                    "Packet loss (%)",
+                    min_value=0.0,
+                    max_value=10.0,
+                    value=0.6,
+                    step=0.1,
+                    key="packet",
+                )
 
             def reset_telemetry():
                 st.session_state.temp = 55.0
@@ -1231,85 +1422,53 @@ if page == "VAE Laboratory":
         packet_loss,
     ]
 
-    # Existing model inference.
     analysis = analyze_telemetry(telemetry)
 
     error = analysis["error"]
     threshold_value = analysis["threshold"]
     is_anomaly = analysis["anomaly"]
 
+    status_color = RED if is_anomaly else GREEN
+    status_text = "ANOMALY DETECTED" if is_anomaly else "NORMAL RANGE"
+    gauge_max = max(threshold_value * 2, error * 1.2, 0.01)
+
     # --------------------------------------------------------
     # Reconstruction error gauge
     # --------------------------------------------------------
     with gauge_col:
         with st.container(border=True):
-            st.markdown("#### Reconstruction error")
-
-            status_color = "#E11D48" if is_anomaly else "#059669"
-            status_text = (
-                "ANOMALY DETECTED"
-                if is_anomaly
-                else "NORMAL RANGE"
-            )
-
             fig_gauge = go.Figure(
                 go.Indicator(
                     mode="gauge+number",
                     value=error,
                     number={
                         "valueformat": ".4f",
-                        "font": {
-                            "size": 36,
-                            "color": "#0F172A",
-                        },
+                        "font": {"size": 32, "color": TEXT},
                     },
                     title={
                         "text": "Reconstruction error",
-                        "font": {
-                            "size": 14,
-                            "color": "#64748B",
-                        },
+                        "font": {"size": 13, "color": MUTED},
                     },
                     gauge={
                         "axis": {
-                            "range": [
-                                0,
-                                max(
-                                    threshold_value * 2,
-                                    error * 1.2,
-                                    0.01,
-                                ),
-                            ],
-                            "tickcolor": "#64748B",
+                            "range": [0, gauge_max],
+                            "tickcolor": MUTED,
                         },
                         "bar": {"color": status_color},
                         "bgcolor": "#FFFFFF",
-                        "bordercolor": "#D5DEEA",
+                        "bordercolor": BORDER,
                         "steps": [
                             {
-                                "range": [
-                                    0,
-                                    threshold_value,
-                                ],
+                                "range": [0, threshold_value],
                                 "color": "#D1FAE5",
                             },
                             {
-                                "range": [
-                                    threshold_value,
-                                    max(
-                                        threshold_value * 2,
-                                        error * 1.2,
-                                        0.01,
-                                    ),
-                                ],
+                                "range": [threshold_value, gauge_max],
                                 "color": "#FFE4E6",
                             },
                         ],
                         "threshold": {
-                            "line": {
-                                "color": "#D97706",
-                                "width": 4,
-                            },
+                            "line": {"color": ORANGE, "width": 4},
                             "thickness": 0.8,
                             "value": threshold_value,
                         },
@@ -1318,10 +1477,10 @@ if page == "VAE Laboratory":
             )
 
             fig_gauge.update_layout(
-                height=275,
+                height=215,
                 paper_bgcolor="rgba(0,0,0,0)",
-                font={"color": "#0F172A"},
-                margin={"l": 25, "r": 25, "t": 55, "b": 15},
+                font={"color": TEXT},
+                margin={"l": 25, "r": 25, "t": 45, "b": 5},
             )
 
             st.plotly_chart(
@@ -1334,7 +1493,7 @@ if page == "VAE Laboratory":
                 f"""
                 <div style="
                     text-align:center;
-                    padding:10px;
+                    padding:6px;
                     border:1px solid {status_color};
                     border-radius:10px;
                     color:{status_color};
@@ -1353,61 +1512,57 @@ if page == "VAE Laboratory":
             )
 
     # --------------------------------------------------------
-    # Summary metrics
+    # Summary metrics and telemetry table
     # --------------------------------------------------------
-    st.markdown("### MODEL SUMMARY")
-
-    m1, m2, m3 = st.columns(3)
-
-    with m1:
-        st.metric(
-            "Reconstruction error",
-            f"{error:.4f}",
-        )
-
-    with m2:
-        st.metric(
-            "Training threshold",
-            f"{threshold_value:.4f}",
-        )
-
-    with m3:
-        st.metric(
-            "Assessment",
-            "Anomaly" if is_anomaly else "Normal",
-        )
-
-    if is_anomaly:
-        st.warning(
-            "The input exceeds the illustrative reconstruction-error "
-            "threshold."
-        )
-    else:
-        st.success(
-            "The input is within the illustrative reconstruction-error "
-            "threshold."
-        )
-
-    # --------------------------------------------------------
-    # Input versus reconstruction
-    # --------------------------------------------------------
-    st.markdown("### INPUT VS RECONSTRUCTION")
-
     reconstruction_df = pd.DataFrame({
         "Feature": FEATURES,
         "Input": telemetry,
         "Reconstruction": analysis["reconstruction"],
     })
 
+    with summary_col:
+        with st.container(border=True):
+            st.markdown("#### Model summary")
+
+            m1, m2, m3 = st.columns(3)
+
+            m1.metric("Error", f"{error:.4f}")
+            m2.metric("Threshold", f"{threshold_value:.4f}")
+            m3.metric("Result", "Anomaly" if is_anomaly else "Normal")
+
+            if is_anomaly:
+                st.warning(
+                    "The input exceeds the illustrative "
+                    "reconstruction-error threshold."
+                )
+            else:
+                st.success(
+                    "The input is within the illustrative "
+                    "reconstruction-error threshold."
+                )
+
+            st.dataframe(
+                reconstruction_df.round(4),
+                width="stretch",
+                hide_index=True,
+                height=178,
+            )
+
+    # --------------------------------------------------------
+    # Diagnostics row
+    # --------------------------------------------------------
     reconstruction_long = reconstruction_df.melt(
         id_vars="Feature",
         var_name="Measurement",
         value_name="Value",
     )
 
-    left, right = st.columns([1.6, 1], gap="large")
+    chart_a, chart_b, chart_c = st.columns(
+        [1.3, 0.8, 1.1],
+        gap="medium",
+    )
 
-    with left:
+    with chart_a:
         with st.container(border=True):
             fig_reconstruction = px.bar(
                 reconstruction_long,
@@ -1415,39 +1570,20 @@ if page == "VAE Laboratory":
                 y="Value",
                 color="Measurement",
                 barmode="group",
-                title="Telemetry compared with VAE output",
+                title="Input vs reconstruction",
                 color_discrete_map={
-                    "Input": "#0891B2",
-                    "Reconstruction": "#7C3AED",
+                    "Input": CYAN,
+                    "Reconstruction": PURPLE,
                 },
             )
 
             st.plotly_chart(
-                style_plot(fig_reconstruction, 360),
+                style_plot(fig_reconstruction, 270),
                 width="stretch",
             )
 
-    with right:
+    with chart_b:
         with st.container(border=True):
-            st.markdown("#### Telemetry summary")
-
-            st.dataframe(
-                reconstruction_df.round(4),
-                width="stretch",
-                hide_index=True,
-            )
-
-    # --------------------------------------------------------
-    # Latent representation and training errors
-    # --------------------------------------------------------
-    st.markdown("### MODEL DIAGNOSTICS")
-
-    latent_col, error_col = st.columns(2, gap="large")
-
-    with latent_col:
-        with st.container(border=True):
-            st.markdown("#### Latent representation")
-
             latent_df = pd.DataFrame({
                 "Latent dimension": ["z1", "z2"],
                 "Value": analysis["latent"],
@@ -1460,48 +1596,48 @@ if page == "VAE Laboratory":
                 color="Latent dimension",
                 title="Encoder latent mean",
                 color_discrete_map={
-                    "z1": "#0891B2",
-                    "z2": "#7C3AED",
+                    "z1": CYAN,
+                    "z2": PURPLE,
                 },
             )
 
+            fig_latent.update_layout(showlegend=False)
+
             st.plotly_chart(
-                style_plot(fig_latent, 310),
+                style_plot(fig_latent, 270),
                 width="stretch",
             )
 
-    with error_col:
+    with chart_c:
         with st.container(border=True):
-            st.markdown("#### Training reconstruction errors")
-
             fig_errors = px.histogram(
                 x=train_errors,
                 nbins=35,
-                title="Synthetic normal training distribution",
+                title="Training reconstruction errors",
                 labels={"x": "Reconstruction error"},
-                color_discrete_sequence=["#2563EB"],
+                color_discrete_sequence=[BLUE],
             )
 
             fig_errors.add_vline(
                 x=threshold_value,
                 line_dash="dash",
-                line_color="#D97706",
+                line_color=ORANGE,
                 annotation_text="Threshold",
             )
 
             fig_errors.add_vline(
                 x=error,
                 line_dash="solid",
-                line_color="#E11D48",
+                line_color=RED,
                 annotation_text="Current input",
             )
 
             st.plotly_chart(
-                style_plot(fig_errors, 310),
+                style_plot(fig_errors, 270),
                 width="stretch",
             )
 
-    st.info(
+    st.caption(
         "Educational demonstration using synthetic telemetry. "
         "A reconstruction error above the learned threshold indicates "
         "an unusual input under this model; it is not a validated "
@@ -1515,128 +1651,142 @@ if page == "VAE Laboratory":
 
 elif page == "Naive Bayes Laboratory":
 
-    st.markdown("## Naive Bayes Laboratory")
-    st.caption(
-        "Text classification • Probabilities • Category prediction"
-    )
-
     model = build_nb_model()
 
-    query = st.text_area(
-        "Enter a technical symptom or maintenance query",
-        value="The equipment is restarting unexpectedly due to unstable power.",
-        height=100,
-    )
+    left, right = st.columns([1, 2.3], gap="medium")
 
-    if st.button("Classify query", type="primary"):
-        predicted, probabilities = predict_category(query)
-
-        st.markdown("### Prediction")
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            panel(
-                "Predicted category",
-                predicted.replace("_", " ").title(),
-                "Multinomial Naive Bayes",
+    with left:
+        with st.container(border=True):
+            query = st.text_area(
+                "Enter a technical symptom or maintenance query",
+                value="The equipment is restarting unexpectedly due to unstable power.",
+                height=120,
             )
 
-        with c2:
-            confidence = probabilities[predicted]
-
-            panel(
-                "Model probability",
-                f"{confidence:.1%}",
-                "Probability within this model's class distribution",
+            run_classify = st.button(
+                "Classify query",
+                type="primary",
+                width="stretch",
             )
 
-        st.markdown("### Category probabilities")
+        with st.expander("How Naive Bayes works", expanded=True):
+            st.write(
+                "Naive Bayes estimates the probability of a class given "
+                "the observed words. It applies Bayes' theorem and "
+                "assumes that features are conditionally independent "
+                "given the class."
+            )
 
-        prob_df = pd.DataFrame({
-            "Category": list(probabilities.keys()),
-            "Probability": list(probabilities.values()),
-        }).sort_values("Probability", ascending=True)
+            st.latex(
+                r"P(C\mid x_1,\ldots,x_n)"
+                r"\propto P(C)\prod_{i=1}^{n}P(x_i\mid C)"
+            )
 
-        fig = px.bar(
-            prob_df,
-            x="Probability",
-            y="Category",
-            orientation="h",
-            range_x=[0, 1],
-            text=prob_df["Probability"].map(
-                lambda x: f"{x:.1%}"
-            ),
-            title="Predicted class probabilities",
-            color="Probability",
-            color_continuous_scale="Blues",
-        )
+            st.caption(
+                "This model uses a small, manually authored synthetic "
+                "training set. Its probabilities are not calibrated "
+                "operational confidence."
+            )
 
-        st.plotly_chart(
-            style_plot(fig, 320),
-            use_container_width=True,
-        )
+    with right:
+        if run_classify:
+            predicted, probabilities = predict_category(query)
 
-        st.markdown("### Retrieved documents")
+            c1, c2 = st.columns(2)
 
-        results = category_rank(
-            query,
-            predicted,
-            k=3,
-        )
+            with c1:
+                panel(
+                    "Predicted category",
+                    predicted.replace("_", " ").title(),
+                    "Multinomial Naive Bayes",
+                )
 
-        for rank, doc in enumerate(results, start=1):
+            with c2:
+                confidence = probabilities[predicted]
+
+                panel(
+                    "Model probability",
+                    f"{confidence:.1%}",
+                    "Probability within this model's class distribution",
+                    accent=PURPLE,
+                )
+
+            prob_df = pd.DataFrame({
+                "Category": list(probabilities.keys()),
+                "Probability": list(probabilities.values()),
+            }).sort_values("Probability", ascending=True)
+
+            fig = px.bar(
+                prob_df,
+                x="Probability",
+                y="Category",
+                orientation="h",
+                range_x=[0, 1],
+                text=prob_df["Probability"].map(
+                    lambda x: f"{x:.1%}"
+                ),
+                title="Predicted class probabilities",
+                color="Probability",
+                color_continuous_scale="Blues",
+            )
+
+            fig.update_layout(coloraxis_showscale=False)
+
             with st.container(border=True):
-                st.markdown(
-                    f"**#{rank} — {doc['title']}**"
-                )
-                st.caption(
-                    f"{doc['id']} • {doc['category']}"
-                )
-                st.write(doc["text"])
-                st.write(
-                    f"Similarity: `{doc['score']:.3f}`  "
-                    f"| Adjusted score: "
-                    f"`{doc['adjusted_score']:.3f}`"
+                st.plotly_chart(
+                    style_plot(fig, 210),
+                    width="stretch",
                 )
 
-    else:
-        st.markdown("### Model training data")
+            st.markdown("#### Retrieved documents")
 
-        training_df = pd.DataFrame(
-            NB_TRAINING_DATA,
-            columns=["Example text", "Category"],
-        )
+            results = category_rank(
+                query,
+                predicted,
+                k=3,
+            )
 
-        st.dataframe(
-            training_df,
-            use_container_width=True,
-            hide_index=True,
-        )
+            doc_cols = st.columns(len(results))
 
-        st.info(
-            "Enter a query and click Classify query to see how the "
-            "model predicts a category and how that category can "
-            "influence retrieval."
-        )
+            for col, (rank, doc) in zip(
+                doc_cols,
+                enumerate(results, start=1),
+            ):
+                with col:
+                    with st.container(border=True):
+                        st.markdown(
+                            f"**#{rank} — {doc['title']}**"
+                        )
+                        st.caption(
+                            f"{doc['id']} • {doc['category']}"
+                        )
+                        st.write(doc["text"])
+                        st.caption(
+                            f"Similarity `{doc['score']:.3f}` • "
+                            f"Adjusted `{doc['adjusted_score']:.3f}`"
+                        )
 
-    st.markdown("### How Naive Bayes works")
+        else:
+            with st.container(border=True):
+                st.markdown("#### Model training data")
 
-    st.write(
-        "Naive Bayes estimates the probability of a class given the "
-        "observed words. It applies Bayes' theorem and assumes that "
-        "features are conditionally independent given the class."
-    )
+                training_df = pd.DataFrame(
+                    NB_TRAINING_DATA,
+                    columns=["Example text", "Category"],
+                )
 
-    st.latex(
-        r"P(C\mid x_1,\ldots,x_n)"
-        r"\propto P(C)\prod_{i=1}^{n}P(x_i\mid C)"
-    )
+                st.dataframe(
+                    training_df,
+                    width="stretch",
+                    hide_index=True,
+                    height=320,
+                )
 
-    st.caption(
-        "This model uses a small, manually authored synthetic training "
-        "set. Its probabilities are not calibrated operational confidence."
-    )
+            st.info(
+                "Enter a query and click Classify query to see how the "
+                "model predicts a category and how that category can "
+                "influence retrieval."
+            )
 
 
 # ============================================================
@@ -1645,18 +1795,6 @@ elif page == "Naive Bayes Laboratory":
 
 elif page == "HMM Laboratory":
 
-    st.markdown("## Hidden Markov Model Laboratory")
-    st.caption(
-        "Hidden states • Observation sequences • Viterbi decoding"
-    )
-
-    st.write(
-        "Select a sequence of observable symptoms. The HMM estimates "
-        "the most likely sequence of hidden equipment states."
-    )
-
-    observation_options = HMM_OBSERVATIONS
-
     default_sequence = [
         "Normal temperature",
         "Elevated temperature",
@@ -1664,30 +1802,22 @@ elif page == "HMM Laboratory":
         "Repeated restart",
     ]
 
-    selected_sequence = st.multiselect(
-        "Observation sequence, in time order",
-        options=observation_options,
-        default=default_sequence,
-    )
+    with st.container(border=True):
+        selected_sequence = st.multiselect(
+            "Observation sequence, in time order",
+            options=HMM_OBSERVATIONS,
+            default=default_sequence,
+            help=(
+                "Select a sequence of observable symptoms. The HMM "
+                "estimates the most likely sequence of hidden "
+                "equipment states."
+            ),
+        )
 
     if not selected_sequence:
         st.warning("Select at least one observation to run Viterbi.")
     else:
         states, final_probs = viterbi(selected_sequence)
-
-        st.markdown("### Inferred state sequence")
-
-        state_df = pd.DataFrame({
-            "Time step": np.arange(1, len(states) + 1),
-            "Observation": selected_sequence,
-            "Inferred state": states,
-        })
-
-        st.dataframe(
-            state_df,
-            use_container_width=True,
-            hide_index=True,
-        )
 
         state_colors = {
             "Normal": GREEN,
@@ -1695,103 +1825,129 @@ elif page == "HMM Laboratory":
             "Fault": RED,
         }
 
-        fig = go.Figure()
+        timeline_col, prob_col, table_col = st.columns(
+            [1.2, 1, 1],
+            gap="medium",
+        )
 
-        for state_name in HMM_STATES:
-            mask = [
-                state == state_name
-                for state in states
-            ]
+        with timeline_col:
+            with st.container(border=True):
+                fig = go.Figure()
 
-            times = [
-                i + 1
-                for i, present in enumerate(mask)
-                if present
-            ]
+                for state_name in HMM_STATES:
+                    times = [
+                        i + 1
+                        for i, state in enumerate(states)
+                        if state == state_name
+                    ]
 
-            if times:
-                fig.add_trace(
-                    go.Scatter(
-                        x=times,
-                        y=[state_name] * len(times),
-                        mode="markers+text",
-                        text=[state_name] * len(times),
-                        textposition="top center",
-                        marker=dict(
-                            size=17,
-                            color=state_colors[state_name],
-                        ),
-                        name=state_name,
-                    )
+                    if times:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=times,
+                                y=[state_name] * len(times),
+                                mode="markers+text",
+                                text=[state_name] * len(times),
+                                textposition="top center",
+                                marker=dict(
+                                    size=17,
+                                    color=state_colors[state_name],
+                                ),
+                                name=state_name,
+                            )
+                        )
+
+                fig.update_layout(
+                    title="Most likely hidden state over time",
+                    xaxis_title="Observation time step",
+                    yaxis_title="Inferred state",
+                    showlegend=False,
                 )
 
-        fig.update_layout(
-            title="Most likely hidden state over time",
-            xaxis_title="Observation time step",
-            yaxis_title="Inferred state",
-        )
+                st.plotly_chart(
+                    style_plot(fig, 290),
+                    width="stretch",
+                )
 
-        st.plotly_chart(
-            style_plot(fig, 330),
-            use_container_width=True,
-        )
+        with prob_col:
+            with st.container(border=True):
+                prob_df = pd.DataFrame({
+                    "State": list(final_probs.keys()),
+                    "Probability": list(final_probs.values()),
+                })
 
-        st.markdown("### Final-step state probabilities")
+                fig = px.bar(
+                    prob_df,
+                    x="State",
+                    y="Probability",
+                    range_y=[0, 1],
+                    text=prob_df["Probability"].map(
+                        lambda x: f"{x:.1%}"
+                    ),
+                    color="State",
+                    color_discrete_map=state_colors,
+                    title="Final-step state scores (normalized)",
+                )
 
-        prob_df = pd.DataFrame({
-            "State": list(final_probs.keys()),
-            "Probability": list(final_probs.values()),
-        })
+                fig.update_layout(showlegend=False)
 
-        fig = px.bar(
-            prob_df,
-            x="State",
-            y="Probability",
-            range_y=[0, 1],
-            text=prob_df["Probability"].map(
-                lambda x: f"{x:.1%}"
-            ),
-            color="State",
-            color_discrete_map={
-                "Normal": GREEN,
-                "Degraded": ORANGE,
-                "Fault": RED,
-            },
-            title="Normalized final-state scores",
-        )
+                st.plotly_chart(
+                    style_plot(fig, 290),
+                    width="stretch",
+                )
 
-        st.plotly_chart(
-            style_plot(fig, 300),
-            use_container_width=True,
-        )
+        with table_col:
+            with st.container(border=True):
+                st.markdown("#### Inferred state sequence")
 
-        st.markdown("### HMM transition matrix")
+                state_df = pd.DataFrame({
+                    "Time step": np.arange(1, len(states) + 1),
+                    "Observation": selected_sequence,
+                    "Inferred state": states,
+                })
 
-        transition_df = pd.DataFrame(
-            HMM_TRANSITION,
-            index=HMM_STATES,
-            columns=HMM_STATES,
-        )
+                st.dataframe(
+                    state_df,
+                    width="stretch",
+                    hide_index=True,
+                    height=215,
+                )
 
-        st.dataframe(
-            transition_df.style.format("{:.2f}"),
-            use_container_width=True,
-        )
+        trans_col, emis_col = st.columns(2, gap="medium")
 
-        st.markdown("### HMM emission matrix")
+        with trans_col:
+            with st.container(border=True):
+                st.markdown("#### HMM transition matrix")
 
-        emission_df = pd.DataFrame(
-            HMM_EMISSION,
-            index=HMM_STATES,
-            columns=HMM_OBSERVATIONS,
-        )
+                transition_df = pd.DataFrame(
+                    HMM_TRANSITION,
+                    index=HMM_STATES,
+                    columns=HMM_STATES,
+                )
 
-        st.dataframe(
-            emission_df.style.format("{:.2f}"),
-            use_container_width=True,
-        )
+                st.dataframe(
+                    transition_df.style.format("{:.2f}"),
+                    width="stretch",
+                    height=148,
+                )
 
-    st.info(
+        with emis_col:
+            with st.container(border=True):
+                st.markdown("#### HMM emission matrix")
+
+                emission_df = pd.DataFrame(
+                    HMM_EMISSION,
+                    index=HMM_STATES,
+                    columns=HMM_OBSERVATIONS,
+                )
+
+                st.dataframe(
+                    emission_df.style.format("{:.2f}"),
+                    width="stretch",
+                    height=148,
+                )
+
+    st.caption(
         "Teaching point: the Viterbi algorithm finds the most likely "
         "hidden-state sequence given the observations and the model "
         "parameters. These transition and emission probabilities are "
@@ -1805,163 +1961,187 @@ elif page == "HMM Laboratory":
 
 elif page == "Agentic RAG":
 
-    st.markdown("## Agentic RAG")
-    st.caption(
-        "Query understanding • Retrieval • Category-aware reranking"
-    )
+    left, right = st.columns([1, 2.4], gap="medium")
 
-    query = st.text_area(
-        "Ask a technical question",
-        value="The equipment is restarting unexpectedly. What should I investigate?",
-        height=100,
-    )
-
-    k = st.slider(
-        "Number of documents to retrieve",
-        min_value=1,
-        max_value=min(6, len(DOCUMENTS)),
-        value=min(3, len(DOCUMENTS)),
-    )
-
-    method = st.radio(
-        "Retrieval strategy",
-        [
-            "Baseline TF-IDF",
-            "Naive Bayes category-aware",
-        ],
-        horizontal=True,
-    )
-
-    if st.button("Run retrieval", type="primary"):
-        predicted_category, probabilities = predict_category(query)
-
-        st.markdown("### Query analysis")
-
-        st.write(
-            f"**Predicted category:** "
-            f"`{predicted_category}`"
-        )
-
-        if method == "Baseline TF-IDF":
-            results = retrieve(query, k=k)
-        else:
-            results = category_rank(
-                query,
-                predicted_category,
-                k=k,
+    with left:
+        with st.container(border=True):
+            query = st.text_area(
+                "Ask a technical question",
+                value="The equipment is restarting unexpectedly. What should I investigate?",
+                height=110,
             )
 
-        st.markdown("### Retrieved evidence")
-
-        for rank, doc in enumerate(results, start=1):
-            with st.container(border=True):
-                top_col, score_col = st.columns([4, 1])
-
-                with top_col:
-                    st.markdown(
-                        f"### {rank}. {doc['title']}"
-                    )
-                    st.caption(
-                        f"Source: {doc['id']}  •  "
-                        f"Category: {doc['category']}"
-                    )
-
-                with score_col:
-                    score = doc.get(
-                        "adjusted_score",
-                        doc["score"],
-                    )
-                    st.metric("Score", f"{score:.3f}")
-
-                st.write(doc["text"])
-
-        with st.expander("View classifier probabilities"):
-            probability_df = pd.DataFrame({
-                "Category": list(probabilities.keys()),
-                "Probability": list(probabilities.values()),
-            }).sort_values("Probability", ascending=False)
-
-            st.dataframe(
-                probability_df,
-                use_container_width=True,
-                hide_index=True,
+            k = st.slider(
+                "Number of documents to retrieve",
+                min_value=1,
+                max_value=min(6, len(DOCUMENTS)),
+                value=min(3, len(DOCUMENTS)),
             )
 
-        st.markdown("### Retrieval score comparison")
+            method = st.radio(
+                "Retrieval strategy",
+                [
+                    "Baseline TF-IDF",
+                    "Naive Bayes category-aware",
+                ],
+            )
 
-        if method == "Naive Bayes category-aware":
-            score_key = "adjusted_score"
-            chart_title = "Category-adjusted retrieval scores"
-        else:
-            score_key = "score"
-            chart_title = "Baseline TF-IDF similarity scores"
+            run_retrieval = st.button(
+                "Run retrieval",
+                type="primary",
+                width="stretch",
+            )
 
-        score_df = pd.DataFrame([
-            {
-                "Document": doc["id"],
-                "Title": doc["title"],
-                "Score": doc[score_key],
-            }
-            for doc in results
+    with right:
+        tab_evidence, tab_scores, tab_classifier, tab_arch = st.tabs([
+            "Retrieved evidence",
+            "Score comparison",
+            "Classifier probabilities",
+            "Prototype architecture",
         ])
 
-        fig = px.bar(
-            score_df,
-            x="Document",
-            y="Score",
-            hover_name="Title",
-            title=chart_title,
-            color="Score",
-            color_continuous_scale="Teal",
-        )
+        if run_retrieval:
+            predicted_category, probabilities = predict_category(query)
 
-        st.plotly_chart(
-            style_plot(fig, 320),
-            use_container_width=True,
-        )
+            if method == "Baseline TF-IDF":
+                results = retrieve(query, k=k)
+            else:
+                results = category_rank(
+                    query,
+                    predicted_category,
+                    k=k,
+                )
 
-    st.markdown("### Current prototype architecture")
+        with tab_evidence:
+            if run_retrieval:
+                st.write(
+                    f"**Predicted category:** "
+                    f"`{predicted_category}`"
+                )
 
-    st.graphviz_chart(
-        """
-        digraph RAG {
-            rankdir=LR;
-            bgcolor="transparent";
-            node [
-                shape=box,
-                style="rounded,filled",
-                fillcolor="#FFFFFF",
-                color="#0891B2",
-                fontcolor="#0F172A",
-                fontname="Arial"
-            ];
-            edge [
-                color="#64748B",
-                fontcolor="#0F172A",
-                fontname="Arial"
-            ];
+                for start in range(0, len(results), 3):
+                    row_docs = results[start:start + 3]
+                    row_cols = st.columns(3)
 
-            Q [label="User Query"];
-            C [label="Naive Bayes\\nCategory"];
-            R [label="TF-IDF\\nRetrieval"];
-            RR [label="Category-aware\\nReranking"];
-            D [label="Retrieved\\nDocuments"];
+                    for col, (offset, doc) in zip(
+                        row_cols,
+                        enumerate(row_docs),
+                    ):
+                        rank = start + offset + 1
+                        score = doc.get(
+                            "adjusted_score",
+                            doc["score"],
+                        )
 
-            Q -> R;
-            Q -> C;
-            R -> RR;
-            C -> RR;
-            RR -> D;
-        }
-        """
-    )
+                        with col:
+                            with st.container(border=True):
+                                st.markdown(
+                                    f"**{rank}. {doc['title']}**"
+                                )
+                                st.caption(
+                                    f"{doc['id']} • "
+                                    f"{doc['category']} • "
+                                    f"Score {score:.3f}"
+                                )
+                                st.write(doc["text"])
+            else:
+                st.info(
+                    "Ask a question and click Run retrieval to see the "
+                    "retrieved evidence."
+                )
 
-    st.info(
-        "This is a retrieval prototype, not a complete autonomous "
-        "agent or a production generative-answer system. It retrieves "
-        "evidence from synthetic documents but does not call an LLM "
-        "to generate a grounded answer."
-    )
+        with tab_scores:
+            if run_retrieval:
+                if method == "Naive Bayes category-aware":
+                    score_key = "adjusted_score"
+                    chart_title = "Category-adjusted retrieval scores"
+                else:
+                    score_key = "score"
+                    chart_title = "Baseline TF-IDF similarity scores"
+
+                score_df = pd.DataFrame([
+                    {
+                        "Document": doc["id"],
+                        "Title": doc["title"],
+                        "Score": doc[score_key],
+                    }
+                    for doc in results
+                ])
+
+                fig = px.bar(
+                    score_df,
+                    x="Document",
+                    y="Score",
+                    hover_name="Title",
+                    title=chart_title,
+                    color="Score",
+                    color_continuous_scale="Teal",
+                )
+
+                st.plotly_chart(
+                    style_plot(fig, 300),
+                    width="stretch",
+                )
+            else:
+                st.info("Run retrieval to see the score comparison.")
+
+        with tab_classifier:
+            if run_retrieval:
+                probability_df = pd.DataFrame({
+                    "Category": list(probabilities.keys()),
+                    "Probability": list(probabilities.values()),
+                }).sort_values("Probability", ascending=False)
+
+                st.dataframe(
+                    probability_df,
+                    width="stretch",
+                    hide_index=True,
+                    height=150,
+                )
+            else:
+                st.info("Run retrieval to see classifier probabilities.")
+
+        with tab_arch:
+            st.graphviz_chart(
+                """
+                digraph RAG {
+                    rankdir=LR;
+                    bgcolor="transparent";
+                    node [
+                        shape=box,
+                        style="rounded,filled",
+                        fillcolor="#FFFFFF",
+                        color="#0891B2",
+                        fontcolor="#0F172A",
+                        fontname="Arial"
+                    ];
+                    edge [
+                        color="#64748B",
+                        fontcolor="#0F172A",
+                        fontname="Arial"
+                    ];
+
+                    Q [label="User Query"];
+                    C [label="Naive Bayes\\nCategory"];
+                    R [label="TF-IDF\\nRetrieval"];
+                    RR [label="Category-aware\\nReranking"];
+                    D [label="Retrieved\\nDocuments"];
+
+                    Q -> R;
+                    Q -> C;
+                    R -> RR;
+                    C -> RR;
+                    RR -> D;
+                }
+                """
+            )
+
+            st.info(
+                "This is a retrieval prototype, not a complete "
+                "autonomous agent or a production generative-answer "
+                "system. It retrieves evidence from synthetic documents "
+                "but does not call an LLM to generate a grounded answer."
+            )
 
 
 # ============================================================
@@ -1969,41 +2149,6 @@ elif page == "Agentic RAG":
 # ============================================================
 
 elif page == "RAG Evaluation Lab":
-
-    st.markdown("## RAG Evaluation Laboratory")
-    st.caption(
-        "Ground-truth evaluation • Recall@3 • MRR • "
-        "Ranking changes and failure analysis"
-    )
-
-    st.markdown(
-        """
-        This experiment compares two retrieval strategies over a fixed
-        set of labelled synthetic technical questions:
-
-        - **Baseline RAG:** TF-IDF similarity only.
-        - **Category-aware RAG:** Naive Bayes predicts a category, and
-          matching documents receive a ranking bonus.
-        """
-    )
-
-    st.warning(
-        "The relevance labels are manually assigned teaching labels. "
-        "Review them if a question has more than one valid answer."
-    )
-
-    # Evaluation controls
-    bonus = st.slider(
-        "Category ranking bonus",
-        min_value=0.0,
-        max_value=0.5,
-        value=0.15,
-        step=0.05,
-        help=(
-            "This value is added to the TF-IDF similarity score "
-            "for documents in the predicted category."
-        ),
-    )
 
     def evaluate_with_bonus(bonus_value):
         metric_rows = []
@@ -2072,128 +2217,58 @@ elif page == "RAG Evaluation Lab":
             pd.DataFrame(detail_rows),
         )
 
+    # --------------------------------------------------------
+    # Top row: control + overall metrics
+    # --------------------------------------------------------
+    ctrl_col, m_col1, m_col2, m_col3, m_col4 = st.columns(
+        [1.5, 1, 1, 1, 1],
+        gap="small",
+        vertical_alignment="center",
+    )
+
+    with ctrl_col:
+        bonus = st.slider(
+            "Category ranking bonus",
+            min_value=0.0,
+            max_value=0.5,
+            value=0.15,
+            step=0.05,
+            help=(
+                "This value is added to the TF-IDF similarity score "
+                "for documents in the predicted category."
+            ),
+        )
+
     metrics_df, details_df = evaluate_with_bonus(bonus)
 
-    # Overall metrics
-    baseline_recall = metrics_df[
-        "Baseline Recall@3"
-    ].mean()
-
-    category_recall = metrics_df[
-        "Category Recall@3"
-    ].mean()
-
+    baseline_recall = metrics_df["Baseline Recall@3"].mean()
+    category_recall = metrics_df["Category Recall@3"].mean()
     baseline_mrr = metrics_df["Baseline RR"].mean()
     category_mrr = metrics_df["Category RR"].mean()
 
-    st.markdown("### Overall performance")
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    c1.metric(
+    m_col1.metric(
         "Baseline Recall@3",
         f"{baseline_recall:.1%}",
     )
 
-    c2.metric(
+    m_col2.metric(
         "Category Recall@3",
         f"{category_recall:.1%}",
         delta=f"{category_recall - baseline_recall:+.1%}",
     )
 
-    c3.metric(
+    m_col3.metric(
         "Baseline MRR",
         f"{baseline_mrr:.3f}",
     )
 
-    c4.metric(
+    m_col4.metric(
         "Category MRR",
         f"{category_mrr:.3f}",
         delta=f"{category_mrr - baseline_mrr:+.3f}",
     )
 
-    st.markdown("### Metric comparison")
-
-    chart_df = pd.DataFrame({
-        "Metric": ["Recall@3", "MRR"],
-        "Baseline RAG": [
-            baseline_recall,
-            baseline_mrr,
-        ],
-        "Category-aware RAG": [
-            category_recall,
-            category_mrr,
-        ],
-    }).melt(
-        id_vars="Metric",
-        var_name="System",
-        value_name="Score",
-    )
-
-    fig = px.bar(
-        chart_df,
-        x="Metric",
-        y="Score",
-        color="System",
-        barmode="group",
-        range_y=[0, 1],
-        text_auto=".2f",
-        title="Baseline vs Category-aware Retrieval",
-        color_discrete_sequence=[BLUE, CYAN],
-    )
-
-    st.plotly_chart(
-        style_plot(fig, 370),
-        use_container_width=True,
-    )
-
-    st.markdown("### Question-level performance")
-
-    question_chart_df = metrics_df.melt(
-        id_vars="Question",
-        value_vars=[
-            "Baseline Recall@3",
-            "Category Recall@3",
-        ],
-        var_name="System",
-        value_name="Recall",
-    )
-
-    fig = px.bar(
-        question_chart_df,
-        x="Recall",
-        y="Question",
-        color="System",
-        barmode="group",
-        orientation="h",
-        range_x=[0, 1],
-        title="Recall@3 for each evaluation question",
-        color_discrete_sequence=[BLUE, CYAN],
-    )
-
-    st.plotly_chart(
-        style_plot(fig, 470),
-        use_container_width=True,
-    )
-
-    st.markdown("### Ranking changes and failure analysis")
-
-    st.dataframe(
-        details_df,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    with st.expander("View question-level metric details"):
-        st.dataframe(
-            metrics_df,
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    changed_count = int(
-        details_df["Ranking changed"].sum()
-    )
+    changed_count = int(details_df["Ranking changed"].sum())
 
     improved_count = int(
         (
@@ -2209,159 +2284,272 @@ elif page == "RAG Evaluation Lab":
         ).sum()
     )
 
-    c1, c2, c3 = st.columns(3)
+    with st.expander("About this experiment"):
+        st.markdown(
+            """
+            This experiment compares two retrieval strategies over a
+            fixed set of labelled synthetic technical questions:
 
-    c1.metric(
-        "Rankings changed",
-        f"{changed_count}/{len(EVALUATION_SET)}",
-    )
-
-    c2.metric(
-        "New successful hits",
-        improved_count,
-    )
-
-    c3.metric(
-        "Lost successful hits",
-        regressed_count,
-    )
-
-    st.markdown("### Inspect one evaluation question")
-
-    selected_question = st.selectbox(
-        "Choose a question",
-        options=[
-            item["question"]
-            for item in EVALUATION_SET
-        ],
-    )
-
-    selected_item = next(
-        item
-        for item in EVALUATION_SET
-        if item["question"] == selected_question
-    )
-
-    selected_relevant = selected_item["relevant"]
-
-    baseline_selected = retrieve(
-        selected_question,
-        k=3,
-    )
-
-    selected_category, selected_probs = predict_category(
-        selected_question
-    )
-
-    category_selected = category_rank(
-        selected_question,
-        selected_category,
-        k=3,
-        bonus=bonus,
-    )
-
-    left, right = st.columns(2)
-
-    with left:
-        st.markdown("#### Baseline results")
-
-        for rank, doc in enumerate(
-            baseline_selected,
-            start=1,
-        ):
-            is_relevant = doc["id"] in selected_relevant
-
-            if is_relevant:
-                st.success(
-                    f"#{rank} {doc['id']} — {doc['title']} "
-                    f"(relevant)"
-                )
-            else:
-                st.write(
-                    f"#{rank} {doc['id']} — {doc['title']}"
-                )
-
-            st.caption(
-                f"TF-IDF score: {doc['score']:.3f}"
-            )
-
-    with right:
-        st.markdown("#### Category-aware results")
-
-        st.caption(
-            f"Naive Bayes category: {selected_category}"
+            - **Baseline RAG:** TF-IDF similarity only.
+            - **Category-aware RAG:** Naive Bayes predicts a category,
+              and matching documents receive a ranking bonus.
+            """
         )
 
-        for rank, doc in enumerate(
-            category_selected,
-            start=1,
-        ):
-            is_relevant = doc["id"] in selected_relevant
+        st.warning(
+            "The relevance labels are manually assigned teaching "
+            "labels. Review them if a question has more than one valid "
+            "answer."
+        )
 
-            if is_relevant:
-                st.success(
-                    f"#{rank} {doc['id']} — {doc['title']} "
-                    f"(relevant)"
-                )
-            else:
-                st.write(
-                    f"#{rank} {doc['id']} — {doc['title']}"
-                )
-
-            st.caption(
-                f"Similarity: {doc['score']:.3f} • "
-                f"Adjusted: {doc['adjusted_score']:.3f}"
-            )
-
-    st.markdown("### Ground-truth labels")
-
-    ground_truth_df = pd.DataFrame([
-        {
-            "Question": item["question"],
-            "Relevant document IDs": ", ".join(
-                item["relevant"]
-            ),
-        }
-        for item in EVALUATION_SET
+    tab_overview, tab_ranking, tab_inspect, tab_truth = st.tabs([
+        "Overview",
+        "Ranking changes & failure analysis",
+        "Inspect a question",
+        "Ground-truth labels",
     ])
 
-    st.dataframe(
-        ground_truth_df,
-        use_container_width=True,
-        hide_index=True,
-    )
+    # --------------------------------------------------------
+    # Overview tab
+    # --------------------------------------------------------
+    with tab_overview:
+        chart_left, chart_right = st.columns(2, gap="medium")
 
-    st.info(
-        "Interpretation: Recall@3 measures the fraction of labelled "
-        "relevant documents found in the top three. MRR rewards finding "
-        "the first relevant result near the top. A ranking change is not "
-        "automatically an improvement; use the relevance labels to judge it."
-    )
+        with chart_left:
+            with st.container(border=True):
+                chart_df = pd.DataFrame({
+                    "Metric": ["Recall@3", "MRR"],
+                    "Baseline RAG": [
+                        baseline_recall,
+                        baseline_mrr,
+                    ],
+                    "Category-aware RAG": [
+                        category_recall,
+                        category_mrr,
+                    ],
+                }).melt(
+                    id_vars="Metric",
+                    var_name="System",
+                    value_name="Score",
+                )
 
-    st.caption(
-        "Scope: six synthetic documents and six manually labelled "
-        "questions. This is an educational experiment, not a statistically "
-        "robust benchmark. Results depend on the labels, training examples, "
-        "similarity scores, and category bonus."
-    )
+                fig = px.bar(
+                    chart_df,
+                    x="Metric",
+                    y="Score",
+                    color="System",
+                    barmode="group",
+                    range_y=[0, 1],
+                    text_auto=".2f",
+                    title="Baseline vs Category-aware Retrieval",
+                    color_discrete_sequence=[BLUE, CYAN],
+                )
+
+                st.plotly_chart(
+                    style_plot(fig, 300),
+                    width="stretch",
+                )
+
+        with chart_right:
+            with st.container(border=True):
+                question_chart_df = metrics_df.melt(
+                    id_vars="Question",
+                    value_vars=[
+                        "Baseline Recall@3",
+                        "Category Recall@3",
+                    ],
+                    var_name="System",
+                    value_name="Recall",
+                )
+
+                fig = px.bar(
+                    question_chart_df,
+                    x="Recall",
+                    y="Question",
+                    color="System",
+                    barmode="group",
+                    orientation="h",
+                    range_x=[0, 1],
+                    title="Recall@3 for each question",
+                    color_discrete_sequence=[BLUE, CYAN],
+                )
+
+                fig.update_yaxes(showticklabels=False, title_text="")
+
+                st.plotly_chart(
+                    style_plot(fig, 300),
+                    width="stretch",
+                )
+
+        s1, s2, s3 = st.columns(3)
+
+        s1.metric(
+            "Rankings changed",
+            f"{changed_count}/{len(EVALUATION_SET)}",
+        )
+
+        s2.metric("New successful hits", improved_count)
+
+        s3.metric("Lost successful hits", regressed_count)
+
+    # --------------------------------------------------------
+    # Ranking changes tab
+    # --------------------------------------------------------
+    with tab_ranking:
+        st.dataframe(
+            details_df,
+            width="stretch",
+            hide_index=True,
+            height=250,
+        )
+
+        with st.expander("View question-level metric details"):
+            st.dataframe(
+                metrics_df,
+                width="stretch",
+                hide_index=True,
+                height=250,
+            )
+
+        st.caption(
+            "Interpretation: Recall@3 measures the fraction of labelled "
+            "relevant documents found in the top three. MRR rewards "
+            "finding the first relevant result near the top. A ranking "
+            "change is not automatically an improvement; use the "
+            "relevance labels to judge it."
+        )
+
+    # --------------------------------------------------------
+    # Inspect tab
+    # --------------------------------------------------------
+    with tab_inspect:
+        selected_question = st.selectbox(
+            "Choose a question",
+            options=[
+                item["question"]
+                for item in EVALUATION_SET
+            ],
+        )
+
+        selected_item = next(
+            item
+            for item in EVALUATION_SET
+            if item["question"] == selected_question
+        )
+
+        selected_relevant = selected_item["relevant"]
+
+        baseline_selected = retrieve(
+            selected_question,
+            k=3,
+        )
+
+        selected_category, selected_probs = predict_category(
+            selected_question
+        )
+
+        category_selected = category_rank(
+            selected_question,
+            selected_category,
+            k=3,
+            bonus=bonus,
+        )
+
+        left, right = st.columns(2, gap="medium")
+
+        with left:
+            with st.container(border=True):
+                st.markdown("#### Baseline results")
+
+                for rank, doc in enumerate(
+                    baseline_selected,
+                    start=1,
+                ):
+                    is_relevant = doc["id"] in selected_relevant
+
+                    if is_relevant:
+                        st.success(
+                            f"#{rank} {doc['id']} — {doc['title']} "
+                            f"(relevant)"
+                        )
+                    else:
+                        st.write(
+                            f"#{rank} {doc['id']} — {doc['title']}"
+                        )
+
+                    st.caption(
+                        f"TF-IDF score: {doc['score']:.3f}"
+                    )
+
+        with right:
+            with st.container(border=True):
+                st.markdown("#### Category-aware results")
+
+                st.caption(
+                    f"Naive Bayes category: {selected_category}"
+                )
+
+                for rank, doc in enumerate(
+                    category_selected,
+                    start=1,
+                ):
+                    is_relevant = doc["id"] in selected_relevant
+
+                    if is_relevant:
+                        st.success(
+                            f"#{rank} {doc['id']} — {doc['title']} "
+                            f"(relevant)"
+                        )
+                    else:
+                        st.write(
+                            f"#{rank} {doc['id']} — {doc['title']}"
+                        )
+
+                    st.caption(
+                        f"Similarity: {doc['score']:.3f} • "
+                        f"Adjusted: {doc['adjusted_score']:.3f}"
+                    )
+
+    # --------------------------------------------------------
+    # Ground truth tab
+    # --------------------------------------------------------
+    with tab_truth:
+        ground_truth_df = pd.DataFrame([
+            {
+                "Question": item["question"],
+                "Relevant document IDs": ", ".join(
+                    item["relevant"]
+                ),
+            }
+            for item in EVALUATION_SET
+        ])
+
+        st.dataframe(
+            ground_truth_df,
+            width="stretch",
+            hide_index=True,
+            height=250,
+        )
+
+        st.caption(
+            "Scope: six synthetic documents and six manually labelled "
+            "questions. This is an educational experiment, not a "
+            "statistically robust benchmark. Results depend on the "
+            "labels, training examples, similarity scores, and "
+            "category bonus."
+        )
 
 
 # ============================================================
 # 15. FOOTER
 # ============================================================
 
-st.divider()
-
 st.markdown(
     f"""
-    <div style="text-align: center; padding: 12px 0 5px 0;">
-        <div style="font-size: 12px; color: {MUTED};">
-            TECHNICAL AI MODEL LABORATORY
-        </div>
-        <div style="font-size: 11px; color: #64748B;
-                    margin-top: 5px;">
-            VAE • Naive Bayes • HMM • RAG • Evaluation
-        </div>
+    <div style="text-align: center; padding: 4px 0 0 0;
+                font-size: 11px; color: {MUTED};">
+        TECHNICAL AI MODEL LABORATORY &nbsp;·&nbsp;
+        VAE • Naive Bayes • HMM • RAG • Evaluation
     </div>
     """,
     unsafe_allow_html=True,
