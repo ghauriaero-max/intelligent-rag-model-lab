@@ -828,7 +828,8 @@ def train_vae():
     model.eval()
 
     with torch.no_grad():
-        reconstruction, _, _ = model(tensor_data)
+        mu, _ = model.encode(tensor_data)
+        reconstruction = model.decode(mu)
 
         train_errors = torch.mean(
             (tensor_data - reconstruction) ** 2,
@@ -853,7 +854,8 @@ def analyze_telemetry(values):
     )
 
     with torch.no_grad():
-        reconstruction, mu, logvar = model(tensor)
+        mu, logvar = model.encode(tensor)
+        reconstruction = model.decode(mu)
 
     reconstructed_scaled = reconstruction.numpy()
     reconstructed_original = scaler.inverse_transform(
@@ -1144,7 +1146,7 @@ st.markdown(
     div[data-testid="stVerticalBlock"] {{ gap: 0.7rem; }}
 
     .hero {{
-        padding: 12px 20px;
+        padding: 18px 24px;
         margin-bottom: 0;
         border-radius: 14px;
     }}
@@ -1157,7 +1159,7 @@ st.markdown(
     }}
 
     .hero-title {{
-        font-size: 24px;
+        font-size: 28px;
         margin: 0;
     }}
 
@@ -1240,25 +1242,41 @@ st.markdown(
 # ============================================================
 
 with st.sidebar:
-    st.markdown(
-        f"""
-        <div style="padding: 8px 4px 18px 4px;">
-            <div style="font-size: 30px; font-weight: 900;
-                        background: linear-gradient(90deg,
-                            {CYAN}, {PURPLE});
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;">
-                M² AI
-            </div>
+    sidebar_logo = get_logo()
+
+    if sidebar_logo is not None:
+        st.image(sidebar_logo, width=150)
+
+        st.markdown(
+            f"""
             <div style="font-size: 11px; color: {MUTED};
-                        letter-spacing: 2px; margin-top: 2px;">
+                        letter-spacing: 2px; margin: -2px 0 16px 4px;">
                 MODEL LABORATORY
             </div>
-        </div>
-        <div class="nav-heading">NAVIGATION</div>
-        """,
-        unsafe_allow_html=True,
-    )
+            <div class="nav-heading">NAVIGATION</div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"""
+            <div style="padding: 8px 4px 18px 4px;">
+                <div style="font-size: 30px; font-weight: 900;
+                            background: linear-gradient(90deg,
+                                {CYAN}, {PURPLE});
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;">
+                    M² AI
+                </div>
+                <div style="font-size: 11px; color: {MUTED};
+                            letter-spacing: 2px; margin-top: 2px;">
+                    MODEL LABORATORY
+                </div>
+            </div>
+            <div class="nav-heading">NAVIGATION</div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.radio(
         "Select laboratory",
@@ -1294,16 +1312,16 @@ with st.sidebar:
 
 page = st.session_state.page
 
-logo_col, hero_col = st.columns([1, 14], vertical_alignment="center")
+logo_col, hero_col = st.columns([2, 12], vertical_alignment="center")
 
 with logo_col:
     logo_image = get_logo()
     if logo_image is not None:
-        st.image(logo_image, width=64)
+        st.image(logo_image, width=150)
     else:
         st.markdown(
             f"""
-            <div style="font-size: 30px; font-weight: 900;
+            <div style="font-size: 56px; font-weight: 900;
                         color: {CYAN}; text-align: center;">
                 M²
             </div>
