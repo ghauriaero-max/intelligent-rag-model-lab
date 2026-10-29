@@ -830,6 +830,59 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
+# ============================================================
+# M² AI — SHARED BRAND HEADER
+# ============================================================
+
+import os
+
+LOGO_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "m2_ai_logo.png",
+)
+
+header_left, header_right = st.columns([1, 5])
+
+with header_left:
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, width=100)
+    else:
+        st.markdown("## M² AI")
+
+with header_right:
+    st.markdown(
+        """
+        <div style="
+            padding: 8px 0 16px 0;
+            border-bottom: 1px solid #263449;
+            margin-bottom: 18px;
+        ">
+            <div style="
+                color: #22D3EE;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 2px;
+            ">
+                M² AI · MODEL LABORATORY
+            </div>
+            <div style="
+                color: #F8FAFC;
+                font-size: 27px;
+                font-weight: 800;
+            ">
+                Technical AI Model Laboratory
+            </div>
+            <div style="
+                color: #94A3B8;
+                font-size: 13px;
+            ">
+                Explore · Experiment · Evaluate
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.divider()
 
     st.markdown("### SYSTEM STATUS")
